@@ -1,0 +1,6 @@
+{
+  "ball_missing_frac": 0.41,
+  "gap_len_median_frames": 25,
+  "gap_len_sigma": 1.0,
+  "id_switch_per_min": 2.0
+}
