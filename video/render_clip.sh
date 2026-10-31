@@ -11,12 +11,14 @@ OUT=video/out/clip
 LIVE_START=40; LIVE_END=140; REPLAY_START=85; REPLAY_END=125; WIDTH=1280
 
 mkdir -p "$OUT/live" "$OUT/replay" "$OUT/rewind"
+if [[ "${SKIP_RENDER:-0}" != 1 ]]; then
 echo "live render $(date +%T)"
 "$B" -b "$STADIUM" -P video/scene_v3.py -- "$MOMENT" "$OUT/live" $LIVE_START $LIVE_END $WIDTH broadcast \
   > "$OUT/live.log" 2>&1
 echo "replay render $(date +%T)"
 "$B" -b "$STADIUM" -P video/scene_v3.py -- "$MOMENT" "$OUT/replay" $REPLAY_START $REPLAY_END $WIDTH replay \
   > "$OUT/replay.log" 2>&1
+fi  # SKIP_RENDER=1 re-assembles existing frames only (seconds)
 
 echo "assemble $(date +%T)"
 # rewind = live frames from the end back to the replay start, every 2nd frame (2x speed)
