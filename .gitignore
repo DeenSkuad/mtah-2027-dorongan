@@ -69,3 +69,7 @@ config/*.local.json
 .pytest_cache/
 .ruff_cache/
 *.egg-info/
+
+# vision video renders
+video/out/
+video/assets/
