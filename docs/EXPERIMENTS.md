@@ -9,6 +9,9 @@ Degraded IDSSE matches (ball hidden 41%, ID switches). spellF1 differences < 0.0
 | 1 | 2026-10-31 | setup | baseline25 | J03WMX | 0.1882 | 0.4718 | 928/511 | 5.1/6.7 | over-fragmented |
 | 1 | 2026-10-31 | setup | **baseline50** | J03WMX | **0.2469** | 0.4594 | 597/511 | 8.7/6.7 | best — same order as organisers' full-match board |
 | 1 | 2026-10-31 | setup | baseline125 | J03WMX | 0.1932 | 0.4142 | 313/511 | 18.2/6.7 | over-merged |
+| 2 | 2026-10-31 | setup | baseline25 | all 7 | 0.1710 | 0.4336 | 894/437 | 5.2/7.3 | |
+| 2 | 2026-10-31 | setup | **baseline50** | all 7 | **0.2299** | 0.4199 | 582/437 | 8.8/7.3 | organisers' full-match floor for this method: 0.2433 — bench tracks the real board closely |
+| 2 | 2026-10-31 | setup | baseline125 | all 7 | 0.2052 | 0.3884 | 305/437 | 18.4/7.3 | |
 
 ## Public 5 minutes — sanity only, never for selection (R3)
 
