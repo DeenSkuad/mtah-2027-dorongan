@@ -51,3 +51,19 @@ def test_input_not_mutated():
 
 def test_load_default_config():
     assert load_config().ball_missing_frac == 0.41
+
+
+def test_full_blackout_terminates():
+    cfg = DegradeConfig(ball_missing_frac=1.0)
+    out = degrade(synthetic(T=2_000), cfg, np.random.default_rng(0))
+    assert np.isnan(out.ball).all()
+
+
+def test_in_play_mask_drops_empty_frames():
+    from mtah.degrade import in_play_mask
+
+    track = synthetic(T=100)
+    players = track.players.copy()
+    players[:30] = np.nan
+    mask = in_play_mask(players, min_players=4)
+    assert not mask[:30].any() and mask[30:].all()

@@ -28,6 +28,23 @@ BLOCKED = [
     ("Bash", {"command": "cat ~/mtah/BAR-ATH_broadcast_homography.csv"}),
     ("Read", {"file_path": "config/degradation.local.json"}),
     ("NotebookEdit", {"notebook_path": "data/x.ipynb"}),
+    # review C3: bypasses that must also be blocked
+    ("Bash", {"command": "make submission"}),
+    ("Bash", {"command": "make measure"}),
+    ("Bash", {"command": "make baseline"}),
+    ("Bash", {"command": "make eval"}),
+    ("Bash", {"command": ".venv/bin/python -m pytest -m match -q"}),
+    ("Bash", {"command": "cd data && cat x"}),
+    ("Bash", {"command": "cat \"data\"/x"}),
+    ("Bash", {"command": "D=data; cat $D/x"}),
+    ("Bash", {"command": "git show HEAD:data/x"}),
+    ("Bash", {"command": "cat x.MP4"}),
+    ("Bash", {"command": "cat config/*.local*"}),
+    ("Bash", {"command": "grep -r ball ."}),
+    ("Bash", {"command": "find . -name '*.txt'"}),
+    ("Bash", {"command": "python scripts/make_submission.py"}),
+    ("Bash", {"command": "python scripts/measure_degradation.py"}),
+    ("Grep", {"pattern": "x", "path": "data"}),
 ]
 
 ALLOWED = [
@@ -35,6 +52,9 @@ ALLOWED = [
     ("Read", {"file_path": "data/README.md"}),
     ("Bash", {"command": "make bench"}),
     ("Bash", {"command": "pytest -q"}),
+    ("Bash", {"command": "make test && make lint"}),
+    ("Bash", {"command": "echo $MTAH_DATA_DIR"}),
+    ("Read", {"file_path": "src/mtah/io/metadata.py"}),
     # file *content* is code Claude writes, never match data: only paths/commands are scanned
     ("Write", {"file_path": "tests/test_x.py", "content": "p = 'data/tactical/x_atd.txt'"}),
 ]

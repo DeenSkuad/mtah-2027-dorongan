@@ -1,4 +1,4 @@
-"""HUMAN-RUN ONLY (rule R1): `pytest -m match`. Assertions never print data values."""
+"""HUMAN-RUN ONLY (rule R1): `pytest -m match`. Failures never print data values."""
 
 import pytest
 
@@ -11,5 +11,8 @@ def test_load_match_shape():
 
     track = load_match()
     track.validate()
-    assert track.n_frames() == N_MATCH_FRAMES, "frame count differs from the submission contract"
-    assert track.team_of_slot.size == 46, "unexpected number of track slots"
+    # pytest.fail instead of assert: assertion rewriting would print the actual values.
+    if track.n_frames() != N_MATCH_FRAMES:
+        pytest.fail("frame count differs from the submission contract", pytrace=False)
+    if track.team_of_slot.size != 46:
+        pytest.fail("unexpected number of track slots", pytrace=False)

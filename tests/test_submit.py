@@ -29,3 +29,24 @@ def test_roundtrip_valid(tmp_path):
     path = write_submission(labels, tmp_path / "team.csv")
     first = path.read_text().splitlines()[:2]
     assert first == ["frame,label", "0,D"]
+
+
+@pytest.mark.parametrize("bad", ["Home", "AWAY", "Dead", "Xyz"])
+def test_rejects_long_strings_before_truncation(tmp_path, bad):
+    labels = np.full(N_MATCH_FRAMES, "H", dtype=object)
+    labels[5] = bad
+    with pytest.raises(ValueError):
+        write_submission(labels, tmp_path / "t.csv")
+
+
+def test_rejects_2d(tmp_path):
+    with pytest.raises(ValueError):
+        write_submission(good()[:, None], tmp_path / "t.csv")
+
+
+def test_failed_write_keeps_previous_file(tmp_path):
+    path = write_submission(good(), tmp_path / "team.csv")
+    before = path.read_text()
+    with pytest.raises(ValueError):
+        write_submission(good()[:-1], path)
+    assert path.read_text() == before

@@ -8,9 +8,9 @@ Prints nothing but "written".
 import json
 
 import numpy as np
-from mtah.io.match import load_match
 
-from mtah.degrade import CONFIG_DIR
+from mtah.degrade import CONFIG_DIR, in_play_mask
+from mtah.io.match import load_match
 
 
 def _runs(mask: np.ndarray) -> np.ndarray:
@@ -20,12 +20,15 @@ def _runs(mask: np.ndarray) -> np.ndarray:
 
 def main() -> None:
     track = load_match()
-    missing = np.isnan(track.ball[:, 0])
+    # Only frames with a full-ish pitch count: pre-match, half-time and post-match would inflate
+    # the missing-ball fraction and add one ~20k-frame "gap" (review I2).
+    in_play = in_play_mask(track.players)
+    missing = np.isnan(track.ball[in_play, 0])
     gaps = _runs(missing)
-    present = ~np.isnan(track.players[:, :, 0])
+    present = ~np.isnan(track.players[in_play, :, 0])
     # A tracklet that starts mid-match is a proxy for an identity break.
     starts = int((present[1:] & ~present[:-1]).sum())
-    minutes = track.n_frames() / (track.fps * 60)
+    minutes = int(in_play.sum()) / (track.fps * 60)
     config = {
         "ball_missing_frac": float(missing.mean()),
         "gap_len_median_frames": int(np.median(gaps)) if len(gaps) else 1,

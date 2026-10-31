@@ -1,5 +1,6 @@
 """Score label arrays with the official metric (evaluation/possession_metrics.py)."""
 
+import zlib
 from collections.abc import Callable
 
 import numpy as np
@@ -40,6 +41,11 @@ def score(gt: np.ndarray, pred: np.ndarray, periods) -> dict:
     return {ours: float(result[theirs]) for ours, theirs in _KEYS.items()}
 
 
+def match_seed(seed: int, match_id: str) -> int:
+    """Per-match RNG seed that does not depend on which other matches are in the run."""
+    return seed * 1_000_003 + zlib.crc32(match_id.encode())
+
+
 def bench(predictors: dict, match_ids, cfg, seed: int = 0):
     """Score every predictor on every external match after degradation; adds a MEAN row each."""
     import pandas as pd
@@ -48,9 +54,9 @@ def bench(predictors: dict, match_ids, cfg, seed: int = 0):
     from mtah.io.external import load_idsse
 
     rows = []
-    for index, match_id in enumerate(match_ids):
+    for match_id in match_ids:
         clean, labels = load_idsse(match_id)
-        track = degrade(clean, cfg, np.random.default_rng(seed + index))
+        track = degrade(clean, cfg, np.random.default_rng(match_seed(seed, match_id)))
         for name, predictor in predictors.items():
             rows.append({"predictor": name, "match": match_id,
                          **score(labels, predictor(track), track.periods)})

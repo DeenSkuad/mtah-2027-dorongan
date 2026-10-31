@@ -15,9 +15,21 @@ from mtah.constants import DATA_DIR, MATCH_PITCH, N_MATCH_FRAMES, REPO_ROOT
 from mtah.schema import MatchTracking
 
 
-def _upstream(name: str):
+def _ensure_repo_root_on_path() -> None:
     if str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
+
+
+def _import_games():
+    """The upstream games module lives at the repo root, which an editable install omits."""
+    _ensure_repo_root_on_path()
+    import games
+
+    return games
+
+
+def _upstream(name: str):
+    _ensure_repo_root_on_path()
     spec = importlib.util.spec_from_file_location(f"upstream_{name}",
                                                   REPO_ROOT / "starter" / f"{name}.py")
     module = importlib.util.module_from_spec(spec)
@@ -28,13 +40,16 @@ def _upstream(name: str):
 def _xy(group: str) -> tuple[float, float]:
     if group[0] == "N":
         return np.nan, np.nan
-    x, y = group.split(",")[:2]
-    return float(x), float(y)
+    try:
+        x, y = group.split(",")[:2]
+        return float(x), float(y)
+    except ValueError:
+        # Never echo the raw value: tracebacks get pasted into chats (rule R1).
+        raise ValueError("unparseable coordinate group in tracking file") from None
 
 
 def load_match(data_dir: Path = DATA_DIR) -> MatchTracking:
-    import games
-
+    games = _import_games()
     baseline = _upstream("baseline")
     paths = games.asset_paths(data_dir=str(data_dir))
     team_of_slot = baseline.team_of_each_track(paths["atd_meta"]).astype(np.int8)
@@ -49,6 +64,8 @@ def load_match(data_dir: Path = DATA_DIR) -> MatchTracking:
             if len(parts) != 3:
                 continue
             t = int(parts[0]) - 1
+            if not 0 <= t < N_MATCH_FRAMES:
+                raise ValueError("frame id outside the submission range")
             players[t] = [_xy(group) for group in parts[1].split(";")]
             ball[t] = _xy(parts[2])
     players *= scale

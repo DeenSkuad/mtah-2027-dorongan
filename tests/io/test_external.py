@@ -35,3 +35,16 @@ def test_load_one(tmp_path):
     assert 0.3 < (labels == "H").mean() < 0.7
     assert (labels == "D").mean() > 0.05
     assert len(track.periods) == 2
+
+
+def test_owner_resets_at_period_boundary():
+    p1, p2 = NS(id=1), NS(id=2)
+    frames = [NS(ball_state=NS(value="alive"), ball_owning_team=AWAY, period=p1),
+              NS(ball_state=NS(value="alive"), ball_owning_team=None, period=p2)]
+    assert "".join(_labels_from_frames(frames, HOME)) == "AD"
+
+
+def test_cache_path_is_versioned(tmp_path):
+    from mtah.io.external import CACHE_VERSION, _cache_path
+
+    assert f"v{CACHE_VERSION}" in _cache_path("J03WMX", tmp_path).name

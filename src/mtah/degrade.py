@@ -30,6 +30,11 @@ def load_config() -> DegradeConfig:
     return DegradeConfig(**json.loads(path.read_text()))
 
 
+def in_play_mask(players: np.ndarray, min_players: int = 18) -> np.ndarray:
+    """Frames with at least min_players tracked: drops pre-match, half-time and post-match."""
+    return (~np.isnan(players[:, :, 0])).sum(axis=1) >= min_players
+
+
 def _drop_ball(ball: np.ndarray, cfg: DegradeConfig, rng: np.random.Generator) -> np.ndarray:
     """Add log-normal-length gaps until the requested missing fraction is reached."""
     ball = ball.copy()
@@ -39,7 +44,7 @@ def _drop_ball(ball: np.ndarray, cfg: DegradeConfig, rng: np.random.Generator) -
     while missing.sum() < target:
         length = max(1, int(rng.lognormal(np.log(cfg.gap_len_median_frames), cfg.gap_len_sigma)))
         length = min(length, target - int(missing.sum()))
-        start = int(rng.integers(0, max(1, T - length)))
+        start = int(rng.integers(0, T - length + 1))
         missing[start:start + length] = True
     ball[missing] = np.nan
     return ball

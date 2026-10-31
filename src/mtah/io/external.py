@@ -14,6 +14,11 @@ from mtah.schema import MatchTracking
 
 IDSSE_MATCHES = ("J03WMX", "J03WN1", "J03WOH", "J03WOY", "J03WPY", "J03WQQ", "J03WR9")
 DEFAULT_CACHE = Path.home() / ".cache" / "mtah" / "idsse"
+CACHE_VERSION = 2  # bump whenever parsing or label semantics change
+
+
+def _cache_path(match_id: str, cache_dir: Path) -> Path:
+    return cache_dir / f"{match_id}.v{CACHE_VERSION}.npz"
 
 
 def _url(match_id: str, kind: str) -> str:
@@ -37,10 +42,15 @@ def fetch_idsse(match_id: str, cache_dir: Path = DEFAULT_CACHE) -> tuple[Path, P
 
 
 def _labels_from_frames(frames, home_team) -> np.ndarray:
-    """D when the ball is dead; else the owning team. A missing owner keeps the last owner."""
+    """D when the ball is dead; else the owning team. A missing owner keeps the last owner
+    within the same period; nothing carries across a period boundary."""
     labels = np.empty(len(frames), dtype="<U1")
     last_owner = "D"
+    period = None
     for index, frame in enumerate(frames):
+        frame_period = getattr(getattr(frame, "period", None), "id", None)
+        if frame_period != period:
+            period, last_owner = frame_period, "D"
         if frame.ball_state is None or frame.ball_state.value != "alive":
             labels[index] = "D"
             continue
@@ -82,7 +92,7 @@ def _to_track(dataset) -> MatchTracking:
 
 def load_idsse(match_id: str, cache_dir: Path = DEFAULT_CACHE) -> tuple[MatchTracking, np.ndarray]:
     """One IDSSE match as (MatchTracking, labels). Parsed once, then served from an .npz cache."""
-    cached = cache_dir / f"{match_id}.npz"
+    cached = _cache_path(match_id, cache_dir)
     if cached.exists():
         z = np.load(cached)
         periods = tuple(map(tuple, z["periods"].tolist()))

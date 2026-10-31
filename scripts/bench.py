@@ -26,6 +26,7 @@ def main() -> None:
 
     print(table.round(4).to_string(index=False))
     out = REPO_ROOT / "docs" / "bench" / f"{datetime.now():%Y%m%d-%H%M%S}.csv"
+    out.parent.mkdir(parents=True, exist_ok=True)
     table.to_csv(out, index=False)
     print(f"\nsaved {out.relative_to(REPO_ROOT)}")
 

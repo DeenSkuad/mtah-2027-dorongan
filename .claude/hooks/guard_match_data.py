@@ -17,12 +17,22 @@ import sys
 SCANNED_KEYS = ("file_path", "path", "pattern", "glob", "command", "notebook_path")
 
 MATCH_DATA = re.compile(
-    r"(^|[\s/'\"=(])data/(?!README\.md\b)"   # anything under data/ except its README
+    r"\bdata\b(?!/README\.md\b)"             # the data folder, however it is spelled or reached
     r"|\.mp4\b"                              # either match video
-    r"|_atd\.(txt|xml)\b"                    # tracking
-    r"|_homography\.csv\b"                   # camera geometry
-    r"|_smart_tagging\.xml\b"                # tactical tagging
-    r"|\.local\.json\b"                      # stats measured on the match
+    r"|_atd\b"                               # tracking
+    r"|_homography\b"                        # camera geometry
+    r"|_smart_tagging\b"                     # tactical tagging
+    r"|\.local\b",                           # stats measured on the match
+    re.IGNORECASE,
+)
+
+# Shell commands that legitimately read the match and print what they find: humans run these.
+HUMAN_ONLY_COMMANDS = re.compile(
+    r"\bmake\s+(submission|measure|baseline|eval)\b"
+    r"|-m\s+['\"]?match\b"                   # pytest -m match
+    r"|\b(make_submission|measure_degradation|baseline)\.py\b"
+    r"|\bgrep\s+-\w*[rR]"                    # recursive grep ignores .gitignore
+    r"|\bfind\s"                             # so does find
 )
 
 MESSAGE = ("Blocked by R1: match data must not reach a cloud LLM. "
@@ -33,7 +43,9 @@ def is_blocked(tool_name, tool_input):
     """Return the refusal message if this call touches match data, else None."""
     for key in SCANNED_KEYS:
         value = tool_input.get(key)
-        if isinstance(value, str) and MATCH_DATA.search(value):
+        if not isinstance(value, str):
+            continue
+        if MATCH_DATA.search(value) or (key == "command" and HUMAN_ONLY_COMMANDS.search(value)):
             return "{} ({}: {})".format(MESSAGE, tool_name, key)
     return None
 

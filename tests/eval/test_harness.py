@@ -37,3 +37,11 @@ def test_summary_has_no_arrays():
     gt = labels("HHHAAA")
     line = summary("x", score(gt, gt.copy(), ((0, 6),)))
     assert "[" not in line and len(line) < 200
+
+
+def test_match_seed_independent_of_order():
+    from mtah.eval.harness import match_seed
+
+    assert match_seed(0, "J03WN1") == match_seed(0, "J03WN1")
+    assert match_seed(0, "J03WN1") != match_seed(0, "J03WMX")
+    assert match_seed(1, "J03WN1") != match_seed(0, "J03WN1")
