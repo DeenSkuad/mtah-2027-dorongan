@@ -1,5 +1,17 @@
 # Experiment Log
 
+## Internal benchmark (`make bench`) — decides
+
+Degraded IDSSE matches (ball hidden 41%, ID switches). spellF1 differences < 0.04 are noise.
+
+| # | Date | Who | Predictor | Matches | spellF1 | macroF1 | spells pred/gt | dur pred/gt (s) | Notes |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 2026-10-31 | setup | baseline25 | J03WMX | 0.1882 | 0.4718 | 928/511 | 5.1/6.7 | over-fragmented |
+| 1 | 2026-10-31 | setup | **baseline50** | J03WMX | **0.2469** | 0.4594 | 597/511 | 8.7/6.7 | best — same order as organisers' full-match board |
+| 1 | 2026-10-31 | setup | baseline125 | J03WMX | 0.1932 | 0.4142 | 313/511 | 18.2/6.7 | over-merged |
+
+## Public 5 minutes — sanity only, never for selection (R3)
+
 Scores are on the **public 5 minutes** only (`make eval`) — a sanity check, not the leaderboard.
 Public GT: 17 possessions, mean 14.2 s. Watch `poss` and `dur` as much as the F1s.
 
