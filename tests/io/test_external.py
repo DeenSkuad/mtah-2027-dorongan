@@ -32,7 +32,8 @@ def test_load_one(tmp_path):
     track, labels = load_idsse(IDSSE_MATCHES[0])
     track.validate()
     assert set(np.unique(labels)) <= {"H", "A", "D"}
-    assert 0.3 < (labels == "H").mean() < 0.7
+    alive = labels != "D"
+    assert 0.3 < (labels[alive] == "H").mean() < 0.7  # home share of in-play frames
     assert (labels == "D").mean() > 0.05
     assert len(track.periods) == 2
 
