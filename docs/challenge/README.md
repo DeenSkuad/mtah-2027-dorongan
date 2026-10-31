@@ -1,3 +1,6 @@
+> Organisers' original README, moved here from the repository root. Relative links in it point at the root (e.g. `evaluation/`, `games.py`), not at this folder.
+
+
 # More than a Hack 2027 — Phase 1: Ball Possession
 
 **Organised by [Metrica Sports](https://metrica-sports.com), [FC Barcelona](https://www.fcbarcelona.com)

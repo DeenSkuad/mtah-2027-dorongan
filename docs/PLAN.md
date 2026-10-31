@@ -7,6 +7,7 @@ Status: ☐ todo · ◐ in progress · ✅ done · ✖ dropped. Put an owner on 
 | Task | Owner | Status |
 |---|---|---|
 | Download all 9 assets incl. tactical video | | ✅ |
+| Foundation: guardrails, package, harness, bench (plan 2026-10-31-foundation) | | ✅ |
 | Clone repo, venv, unpack into `data/` | | ✅ |
 | Reproduce baselines + scorer locally | | ✅ |
 | Register every member with the **same team name** (by Nov 10) | all | ☐ |

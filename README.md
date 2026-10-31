@@ -1,52 +1,73 @@
-# MTAH 2027 — Team Project Hub
+# MTAH 2027 — Ball Possession (Phase 1)
 
-Start here. Upstream challenge docs (README, CHALLENGE, DATA, EVALUATION, SUBMISSION, RULES, FAQ)
-are untouched so `git pull upstream main` stays clean. Everything the team adds lives in the places below.
+Our entry to [More than a Hack 2027](https://github.com/metrica-sports/more-than-a-hack-2027):
+label every frame of BAR–ATH as **H** (home), **A** (away), **D** (dead ball) or **X** (abstain).
+Ranked on `spellF1` (whole possessions recovered); floor to beat **0.2433**.
 
 ## Key dates (CET)
 
 | Date | Milestone | Status |
 |---|---|---|
 | Oct 20 | Data released | ✅ downloaded |
-| **Nov 10** | **All members registered with the same team name** | ☐ |
-| Nov 14 | Submission instructions published | ☐ |
-| **Nov 17, 23:59** | **Submission deadline** (CSV + public repo + tech doc) | ☐ |
-| < Nov 26 | Results — top 20 go to Innovation Challenge | |
+| **Nov 10** | **All members registered under the same team name** | ☐ |
+| Nov 14 | Submission instructions published · **model freeze** | ☐ |
+| **Nov 16** | **Our submission target** (deadline Nov 17, 23:59) | ☐ |
+| < Nov 26 | Results — top 20 go to the Innovation Challenge | |
 
-## Target
-
-Ranked on `spellF1` (full match, private GT). Baseline floor: **0.2433**. First tie-break: `macroF1`.
-
-## Where things live
-
-```
-PROJECT.md              <- you are here
-docs/
-  PLAN.md               milestones + task board (who does what)
-  EXPERIMENTS.md        every scored run: idea, params, public-5min scores
-  DECISIONS.md          possession rules & design choices (feeds the tech doc)
-  TECHNICAL_REPORT.md   deliverable #3, filled in as we go
-src/possession/         our pipeline (importable package)
-scripts/                CLI entry points (make_submission.py, ...)
-notebooks/              exploration; name as NN_initials_topic.ipynb
-starter/, evaluation/   upstream — read, don't edit
-data/                   match assets (git-ignored, never commit)
-evaluation/results/     candidate submissions (git-ignored except baselines)
-```
-
-## Daily commands
+## Quick start
 
 ```bash
-source .venv/bin/activate
-make baseline        # rebuild the 4 reference baselines
-make eval            # score everything in evaluation/results/
-make validate F=evaluation/results/<file>.csv   # ALWAYS before submitting
-make sync            # pull upstream fixes from Metrica
+make setup                 # Python 3.12 venv via uv + editable install
+make test && make lint     # must be green before every commit
+make bench                 # score predictors on degraded Bundesliga matches (model selection)
+make submission            # HUMAN ONLY: builds evaluation/results/<team>.csv from the match
+make validate F=evaluation/results/<team>.csv
+make help                  # every target
 ```
 
-## Git workflow
+Put the match bundle in `data/` (see `data/README.md`) or point `MTAH_DATA_DIR` at it.
 
-- `upstream` = metrica-sports/more-than-a-hack-2027 (read-only).
-- `develop` = team integration branch; feature branches `feat/<topic>` → PR into `develop`.
-- Add our own public repo as `origin` when created (deliverable #2 must be public — **never push data/ or GT**).
-- Log every scored run in `docs/EXPERIMENTS.md` in the same commit as the code that produced it.
+## Project layout
+
+```
+.
+├── README.md            this page
+├── CLAUDE.md            rules Claude follows here (R1: match data never reaches a cloud LLM)
+├── Makefile             every command the team needs
+├── pyproject.toml       mtah package, deps, pytest + ruff config
+├── .claude/             team-wide Claude Code setup: R1 guard hook, permissions, 5 subagents
+├── config/              degradation defaults (match-measured values stay local, git-ignored)
+├── src/mtah/            our code — see docs/ARCHITECTURE.md
+├── scripts/             bench · make_submission · fetch_external · measure_degradation
+├── tests/               mirrors src/mtah; markers: network, match (humans only)
+├── notebooks/           exploration on external data — NN_initials_topic.ipynb
+├── docs/
+│   ├── ARCHITECTURE.md  data flow, modules, how to add a predictor
+│   ├── PLAN.md          task board with owners
+│   ├── EXPERIMENTS.md   every scored run
+│   ├── DECISIONS.md     possession rules we chose (feeds the tech report)
+│   ├── REFERENCES.md    papers, datasets, libraries, Claude Code docs
+│   ├── TECHNICAL_REPORT.md  deliverable #3
+│   ├── bench/           benchmark result CSVs
+│   ├── challenge/       the organisers' docs (CHALLENGE, DATA, EVALUATION, RULES, FAQ…)
+│   └── superpowers/     design spec + implementation plans
+├── requirements/        lock.txt (exact env) + upstream requirement files
+├── evaluation/          UPSTREAM — official scorer, public GT, results/   (read-only)
+├── starter/             UPSTREAM — loaders, baseline, notebooks           (read-only)
+├── games.py             UPSTREAM — paths and frame alignment               (read-only)
+└── data/                match assets — git-ignored, never committed, never shown to Claude
+```
+
+`evaluation/`, `starter/` and `games.py` stay at the root because the official scorer and starter
+scripts resolve paths relative to it.
+
+## How we work
+
+- **Rules:** `CLAUDE.md` (R1–R7). The one that can disqualify us: no match data, video or
+  extracts go to any cloud LLM. A Claude Code hook enforces it.
+- **Model selection** happens on `make bench` (7 public Bundesliga matches, degraded to look like
+  our tracking), never on the public 5 minutes.
+- **Process:** superpowers — brainstorm → plan → TDD → verify → review.
+- **Git:** `upstream` = Metrica (read-only) · `develop` = integration · `feat/<topic>` → PR ·
+  `main` always submittable. Our public repo will be `origin` (deliverable #2).
+- Every experiment: one commit + one row in `docs/EXPERIMENTS.md`.
