@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mtah"
+version = "0.1.0"
+description = "More than a Hack 2027 Phase 1 — frame-level team possession"
+requires-python = ">=3.12"
+dependencies = ["numpy>=1.26", "pandas>=2.2", "kloppy==3.18.*"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6", "jupyterlab>=4", "matplotlib>=3.8", "mplsoccer>=1.2"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-m 'not match and not network'"
+markers = [
+  "match: reads the BAR-ATH match data — humans only (rule R1)",
+  "network: downloads external datasets",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests", "scripts"]
+extend-exclude = ["evaluation", "starter", "games.py", "notebooks"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "NPY"]
