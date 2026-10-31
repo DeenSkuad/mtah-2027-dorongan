@@ -18,8 +18,11 @@ from mathutils import Vector
 args = sys.argv[sys.argv.index("--") + 1:]
 moment = json.loads(Path(args[0]).read_text())
 out_dir = Path(args[1])
-FRAME = int(args[2])
-WIDTH = int(args[3]) if len(args) > 3 else 1280
+FRAME, F_END = int(args[2]), int(args[3])
+WIDTH = int(args[4]) if len(args) > 4 else 1280
+CAM_MODE = args[5] if len(args) > 5 else "broadcast"  # broadcast | replay
+SLOWMO = 3  # replay plays at 1/3 speed
+NATIVE_SPEED = {"Walking": 1.4, "Jogging": 3.2, "Running": 5.5}  # m/s of each in-place cycle
 ASSETS = Path(__file__).resolve().parent / "assets" / "mixamo"
 L, W = moment["pitch"]
 FPS = moment["fps"]
@@ -133,7 +136,7 @@ for k in range(20):
     store.lights.new  # noqa: B018 (keeps the accessor warm)
     bpy.ops.object.light_add(type="SPOT", location=pos)
     spot = bpy.context.object
-    spot.data.energy = 1.6e5
+    spot.data.energy = 1.1e5
     spot.data.spot_size = math.radians(70)
     spot.data.spot_blend = 0.8
     spot.data.shadow_soft_size = 2.5
@@ -168,7 +171,7 @@ def kit(name, base, stripe, stripes):
     tree, bsdf = principled(m)
     if stripes:
         wave = tree.nodes.new("ShaderNodeTexWave")
-        wave.inputs["Scale"].default_value = 0.08  # Mixamo meshes are in centimetres
+        wave.inputs["Scale"].default_value = 0.16  # Mixamo meshes are in centimetres
         wave.wave_profile = "SAW"
         wave.bands_direction = "X"
         co = tree.nodes.new("ShaderNodeTexCoord")
@@ -185,29 +188,34 @@ def kit(name, base, stripe, stripes):
         tree.links.new(mix.outputs[2], bsdf.inputs["Base Color"])
     else:
         bsdf.inputs["Base Color"].default_value = (*base, 1)
-    bsdf.inputs["Roughness"].default_value = 0.6
-    bsdf.inputs["Sheen Weight"].default_value = 0.3
+    bsdf.inputs["Roughness"].default_value = 0.5
     return m
 
 
 KITS = {
-    0: {"Shirt": kit("home_shirt", (0.42, 0.0, 0.13), (0.0, 0.1, 0.38), True),
+    0: {"Shirt": kit("home_shirt", (0.35, 0.0, 0.06), (0.0, 0.03, 0.3), True),
         "Shorts": kit("home_shorts", (0.0, 0.06, 0.22), None, False),
         "Socks": kit("home_socks", (0.0, 0.06, 0.22), None, False)},
-    1: {"Shirt": kit("away_shirt", (0.7, 0.02, 0.03), (0.85, 0.85, 0.85), True),
+    1: {"Shirt": kit("away_shirt", (0.6, 0.0, 0.0), (0.8, 0.8, 0.8), True),
         "Shorts": kit("away_shorts", (0.02, 0.02, 0.02), None, False),
         "Socks": kit("away_socks", (0.02, 0.02, 0.02), None, False)},
 }
 
 
-def assign_action(obj, action, offset):
+def assign_action(obj, action, offset, playback):
+    """Loop an in-place cycle; playback < 1 slows it so the stride matches the real speed."""
     obj.animation_data_create()
     track = obj.animation_data.nla_tracks.new()
     strip = track.strips.new(action.name, 1, action)
-    strip.frame_start = 1 - offset
-    strip.frame_end = strip.frame_start + (action.frame_range[1] - action.frame_range[0]) * 40
     strip.repeat = 40
+    strip.scale = 1.0 / playback
+    strip.frame_start = 1 - offset
     strip.extrapolation = "HOLD"
+
+
+def pitch_heading_to_z(dx, dy):
+    """Armature Z rotation facing pitch direction (dx, dy); Mixamo rigs face -Y after import."""
+    return math.atan2(dx * SL, dy * SW) + math.pi / 2
 
 
 frames = moment["players"]
@@ -228,16 +236,25 @@ for p, team in enumerate(moment["teams"]):
                 part.data = m.data.copy()
                 part.data.materials.clear()
                 part.data.materials.append(material)
-    x, y = frames[i][p]
-    nx, ny = frames[min(i + 1, len(frames) - 1)][p]
-    speed = math.hypot(nx - x, ny - y) * FPS
-    gait = "Running" if speed > 5.0 else "Jogging" if speed > 2.0 else "Walking"
-    assign_action(new_rig, actions[gait], random.randint(0, 30))
-    new_rig.location = to_world(x, y)
-    heading = math.atan2(ny - y, nx - x) if speed > 0.3 else random.uniform(-math.pi, math.pi)
-    # world heading of a pitch-space direction: x->+Y, y->+X in stadium axes
-    new_rig.rotation_euler = (math.radians(90), 0, math.atan2(math.cos(heading), math.sin(heading))
-                              - math.pi / 2 + math.pi)
+    window = range(FRAME - 1, min(F_END, len(frames) - 1))
+    speeds = [math.dist(frames[t][p], frames[t + 1][p]) * FPS for t in window]
+    mean_speed = sum(speeds) / len(speeds)
+    gait = "Running" if mean_speed > 4.5 else "Jogging" if mean_speed > 1.8 else "Walking"
+    playback = min(max(mean_speed / NATIVE_SPEED[gait], 0.6), 1.6)
+    assign_action(new_rig, actions[gait], random.randint(0, 30), playback)
+    z_rot = None
+    for t in window:
+        (x, y), (nx, ny) = frames[t][p], frames[t + 1][p]
+        if math.hypot(nx - x, ny - y) * FPS > 0.4 or z_rot is None:
+            target_rot = pitch_heading_to_z(nx - x, ny - y)
+            if z_rot is None:
+                z_rot = target_rot
+            delta = (target_rot - z_rot + math.pi) % (2 * math.pi) - math.pi
+            z_rot += 0.2 * delta  # smooth turning, no snapping
+        new_rig.location = to_world(x, y)
+        new_rig.rotation_euler = (math.radians(90), 0, z_rot)
+        new_rig.keyframe_insert("location", frame=t + 1)
+        new_rig.keyframe_insert("rotation_euler", frame=t + 1)
 
 for o in template:
     o.hide_render = True
@@ -246,8 +263,11 @@ for o in template:
 # the stadium ships a proper textured ball (0.5 m): resize to a real 0.22 m ball
 ball = store.objects["Soccer Ball"]
 ball.scale *= 0.22 / max(ball.dimensions)
+for t in range(FRAME - 1, F_END):
+    bx, by = moment["ball"][t]
+    ball.location = to_world(bx, by, 0.11)
+    ball.keyframe_insert("location", frame=t + 1)
 bx, by = moment["ball"][i]
-ball.location = to_world(bx, by, 0.11)
 
 # LED advertising boards around the pitch
 for k, (x0, y0, x1, y1) in enumerate([(-2, -3, L + 2, -3), (-2, W + 3, L + 2, W + 3),
@@ -275,10 +295,29 @@ bpy.ops.object.camera_add()
 cam = bpy.context.object
 cam.data.lens = 62
 cam.data.clip_end = 2000
-cam.location = Vector((CX - (W / 2 * SW + 36), CY + (bx - L / 2) * SL * 0.6, 18))
-target = to_world(bx, by)
-cam.rotation_euler = (target - cam.location).to_track_quat("-Z", "Y").to_euler()
 scene.camera = cam
+smooth = None
+if CAM_MODE == "broadcast":
+    # main camera on the halfway gantry; the operator pans after a smoothed ball, never snaps
+    cam.location = Vector((CX - (W / 2 * SW + 36), CY + (bx - L / 2) * SL * 0.6, 18))
+    for t in range(FRAME - 1, F_END):
+        target = to_world(*moment["ball"][t])
+        smooth = target if smooth is None else smooth.lerp(target, 0.06)
+        cam.rotation_euler = (smooth - cam.location).to_track_quat("-Z", "Y").to_euler()
+        cam.keyframe_insert("rotation_euler", frame=t + 1)
+else:
+    # 3D replay: low and close, arcing 80 degrees around the interception point
+    cam.data.lens = 40
+    focus = to_world(*moment["ball"][moment["switch_frame"]], 0.0)
+    span = max(F_END - FRAME, 1)
+    for t in range(FRAME - 1, F_END):
+        target = to_world(*moment["ball"][t], 0.8)
+        smooth = target if smooth is None else smooth.lerp(target, 0.15)
+        angle = math.radians(200 - 80 * (t - FRAME + 1) / span)
+        cam.location = focus + Vector((math.cos(angle) * 11, math.sin(angle) * 11, 2.2))
+        cam.rotation_euler = (smooth - cam.location).to_track_quat("-Z", "Y").to_euler()
+        cam.keyframe_insert("location", frame=t + 1)
+        cam.keyframe_insert("rotation_euler", frame=t + 1)
 
 # ------------------------------------------------------------------ render
 scene.frame_set(FRAME)
@@ -296,8 +335,20 @@ except Exception as error:
     print("GPU unavailable:", error)
 scene.view_settings.view_transform = "AgX"
 scene.view_settings.look = "AgX - Punchy"
-scene.view_settings.exposure = -0.3
+scene.view_settings.exposure = -0.6
 scene.render.resolution_x, scene.render.resolution_y = WIDTH, WIDTH * 9 // 16
-scene.render.filepath = str(out_dir / f"still_{FRAME:04d}.png")
-bpy.ops.render.render(write_still=True)
+scene.render.fps = FPS
+if F_END > FRAME:
+    scene.frame_start, scene.frame_end = FRAME, F_END
+    if CAM_MODE == "replay":  # time remap: every scene frame becomes SLOWMO rendered frames
+        scene.render.frame_map_old, scene.render.frame_map_new = 1, SLOWMO
+        scene.frame_start, scene.frame_end = FRAME * SLOWMO, F_END * SLOWMO
+    scene.cycles.samples = 48
+    scene.render.use_motion_blur = True
+    scene.render.motion_blur_shutter = 0.5
+    scene.render.filepath = str(out_dir / "f_")
+    bpy.ops.render.render(animation=True)
+else:
+    scene.render.filepath = str(out_dir / f"still_{FRAME:04d}.png")
+    bpy.ops.render.render(write_still=True)
 print("STILL DONE")
