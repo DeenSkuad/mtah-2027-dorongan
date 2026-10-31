@@ -269,6 +269,56 @@ for t in range(FRAME - 1, F_END):
     ball.keyframe_insert("location", frame=t + 1)
 bx, by = moment["ball"][i]
 
+# ------------------------------------------------------------------ ghost ball + AR ring
+GHOST_START, GHOST_END = 62, 112  # live shot only: the ball "disappears", the model still tracks it
+
+
+def emissive(name, color, strength):
+    m = store.materials.new(name)
+    _, b = principled(m)
+    b.inputs["Base Color"].default_value = (0, 0, 0, 1)
+    b.inputs["Emission Color"].default_value = (*color, 1)
+    b.inputs["Emission Strength"].default_value = strength
+    return m
+
+
+bpy.ops.mesh.primitive_uv_sphere_add(radius=0.3, segments=16, ring_count=8)
+ghost = bpy.context.object
+ghost.data.materials.append(emissive("ghost", (0.3, 0.85, 1.0), 4.0))
+ghost.modifiers.new("wire", "WIREFRAME").thickness = 0.012
+
+bpy.ops.mesh.primitive_torus_add(major_radius=0.85, minor_radius=0.045, location=(0, 0, 0.03))
+ring = bpy.context.object
+ring.scale.z = 0.2
+ring.data.materials.append(emissive("ar_ring", (1.0, 0.72, 0.05), 2.5))
+
+teams = moment["teams"]
+labels = moment["labels"]
+for t in range(FRAME - 1, F_END):
+    bx_t, by_t = moment["ball"][t]
+    hidden = CAM_MODE == "broadcast" and GHOST_START <= t + 1 <= GHOST_END
+    ball.hide_render = hidden
+    ball.keyframe_insert("hide_render", frame=t + 1)
+    ghost.hide_render = not hidden
+    ghost.location = to_world(bx_t, by_t, 0.2)
+    ghost.rotation_euler.z = t * 0.15
+    for path in ("hide_render", "location", "rotation_euler"):
+        ghost.keyframe_insert(path, frame=t + 1)
+    # ring under the closest player of the team the labels say is in possession
+    owner = {"H": 0, "A": 1}.get(labels[t])
+    ring.hide_render = owner is None
+    if owner is not None:
+        carrier = min((p for p in range(len(teams)) if teams[p] == owner),
+                      key=lambda p: math.dist(frames[t][p], (bx_t, by_t)))
+        ring.location = to_world(*frames[t][carrier], 0.03)
+    ring.keyframe_insert("hide_render", frame=t + 1)
+    ring.keyframe_insert("location", frame=t + 1)
+for fcurve in (ball.animation_data.action.fcurves if ball.animation_data and
+               hasattr(ball.animation_data.action, "fcurves") else []):
+    if fcurve.data_path == "hide_render":
+        for key in fcurve.keyframe_points:
+            key.interpolation = "CONSTANT"
+
 # LED advertising boards around the pitch
 for k, (x0, y0, x1, y1) in enumerate([(-2, -3, L + 2, -3), (-2, W + 3, L + 2, W + 3),
                                       (-4, -1, -4, W + 1), (L + 4, -1, L + 4, W + 1)]):

@@ -25,15 +25,19 @@ for ((f=LIVE_END; f>=REPLAY_START; f-=2)); do
   cp "$(printf "$OUT/live/f_%04d.png" $f)" "$(printf "$OUT/rewind/r_%04d.png" $n)"; n=$((n+1))
 done
 
+TAGS=video/out/overlays
+.venv/bin/python video/make_overlays.py "$TAGS" $WIDTH
+# live tag only while the ball is hidden (ghost window, scene frames 62-112)
+G0=$(echo "(62-$LIVE_START)/25" | bc -l); G1=$(echo "(112-$LIVE_START)/25" | bc -l)
 ffmpeg -loglevel error -y -framerate 25 -start_number $LIVE_START -i "$OUT/live/f_%04d.png" \
+  -i "$TAGS/live_tag.png" -filter_complex "[0][1]overlay=enable='between(t,$G0,$G1)'" \
   -c:v libx264 -pix_fmt yuv420p -crf 17 "$OUT/1_live.mov"
-ffmpeg -loglevel error -y -framerate 25 -i "$OUT/rewind/r_%04d.png" \
-  -vf "eq=saturation=0.6:contrast=1.1,drawbox=x=40:y=40:w=230:h=56:color=black@0.55:t=fill,drawtext=text='REPLAY':x=60:y=52:fontsize=34:fontcolor=white:font=Helvetica" \
-  -c:v libx264 -pix_fmt yuv420p -crf 17 "$OUT/2_rewind.mov" \
-  || ffmpeg -loglevel error -y -framerate 25 -i "$OUT/rewind/r_%04d.png" -vf "eq=saturation=0.6" \
-       -c:v libx264 -pix_fmt yuv420p -crf 17 "$OUT/2_rewind.mov"
+ffmpeg -loglevel error -y -framerate 25 -i "$OUT/rewind/r_%04d.png" -i "$TAGS/replay_tag.png" \
+  -filter_complex "[0]eq=saturation=0.55:contrast=1.1[v];[v][1]overlay" \
+  -c:v libx264 -pix_fmt yuv420p -crf 17 "$OUT/2_rewind.mov"
 ffmpeg -loglevel error -y -framerate 25 -start_number $((REPLAY_START * 3)) -i "$OUT/replay/f_%04d.png" \
+  -i "$TAGS/replay3d_tag.png" -filter_complex "[0][1]overlay" \
   -c:v libx264 -pix_fmt yuv420p -crf 17 "$OUT/3_replay.mov"
 printf "file '%s'\n" 1_live.mov 2_rewind.mov 3_replay.mov > "$OUT/list.txt"
-ffmpeg -loglevel error -y -f concat -safe 0 -i "$OUT/list.txt" -c copy video/out/ghost_ball_clip_v1.mov
+ffmpeg -loglevel error -y -f concat -safe 0 -i "$OUT/list.txt" -c copy video/out/ghost_ball_clip_v2.mov
 echo "done $(date +%T)"
