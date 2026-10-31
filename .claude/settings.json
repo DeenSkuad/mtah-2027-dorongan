@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./data/tactical/**)",
+      "Read(./data/broadcast/**)",
+      "Edit(./data/**)",
+      "Read(./config/*.local.json)",
+      "Read(**/*.mp4)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read|Edit|Write|Grep|Glob|Bash|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_match_data.py\"",
+            "timeout": 10,
+            "statusMessage": "R1 data guard"
+          }
+        ]
+      }
+    ]
+  }
+}

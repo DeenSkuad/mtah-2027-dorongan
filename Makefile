@@ -4,7 +4,7 @@ PY := .venv/bin/python -W ignore
 
 setup:
 	python3 -m venv .venv
-	.venv/bin/pip install -r requirements.txt -r requirements-starter.txt jupyter
+	.venv/bin/pip install -r requirements/upstream.txt -r requirements/upstream-starter.txt jupyter
 
 baseline:
 	$(PY) starter/baseline.py
