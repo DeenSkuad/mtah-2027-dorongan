@@ -55,7 +55,10 @@ The single biggest risk was disqualification for sending match data to a cloud L
 1. **Process:** Claude develops only on public data that carries the same labels; a human runs anything that touches the match and pastes back aggregate scores only.
 2. **Code:** match-side output goes through `mtah.report.summary`; error messages never echo values; match tests fail without printing data.
 3. **Enforcement:** a Claude Code PreToolUse hook blocks tool calls that reference the data folder, the video, the tracking/tagging/homography files or locally measured statistics, plus human-only commands. It has 35 tests. It blocked Claude about 15 times during the project, including false positives on harmless text, which was accepted as the cost of safety.
-4. **Disclosure question:** a few aggregate statistics (video length, ball-present %, label counts) were seen before the rule was found. Whether to tell the organisers is left to the team.
+4. **Incidents and disclosure question:**
+   - Oct 31: a few aggregate statistics (video length, ball-present %, label counts) were seen before the rule was found.
+   - Nov 1: three still frames from the tactical video were pasted into the chat by a team member. Claude did not analyse or use them, and the team was reminded that screenshots must stay local.
+   - The hook can't stop content a human pastes in; that part is human discipline. Whether to tell the organisers is left to the team.
 
 ## 5. How Claude Code was used
 
