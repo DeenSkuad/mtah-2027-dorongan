@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Possession Lab</title>
+<style>
+/* Layout: broadcast desk — video (or tactical pitch) centre stage, live possession + pitch map
+   in a side rail, full-match H/A/D timeline under the picture, spell list + head-to-head below.
+   One deliberate look: floodlit pitch at night under frosted glass. */
+:root {
+  color-scheme: dark;
+  --night: #030d09;            /* page ground: stadium night */
+  --turf: #0b2a1c;             /* glow behind the glass */
+  --glass: rgba(255, 255, 255, 0.055);
+  --glass-strong: rgba(255, 255, 255, 0.09);
+  --edge: rgba(255, 255, 255, 0.11);
+  --fg: #eef5f1;
+  --muted: #93a89d;
+  --faint: #5d6f66;
+  --home: #4c8dff;             /* home side */
+  --away: #ff8a3c;             /* away side */
+  --dead: #3a4a43;             /* ball out of play */
+  --live: #ff453a;
+  --good: #32d74b;
+  --pitch-a: #145234;
+  --pitch-b: #175c3b;
+  --line: rgba(255, 255, 255, 0.55);
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --r-lg: 22px;
+  --r-md: 14px;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--fg);
+  background:
+    radial-gradient(1200px 520px at 18% -10%, rgba(80, 160, 110, 0.20), transparent 60%),
+    radial-gradient(900px 480px at 92% 0%, rgba(120, 190, 150, 0.12), transparent 60%),
+    radial-gradient(1400px 700px at 50% 120%, var(--turf), transparent 70%),
+    var(--night);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1680px; margin: 0 auto; padding-inline: 20px; padding-block: 16px 28px; display: grid; gap: 16px; }
+.glass {
+  background: var(--glass);
+  border: 1px solid var(--edge);
+  border-radius: var(--r-lg);
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.label { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* top bar */
+.bar { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 18px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 17px; letter-spacing: -0.01em; margin-right: 8px; }
+.brand-mark { width: 26px; height: 26px; border-radius: 8px; background: conic-gradient(from 200deg, var(--home), var(--away), var(--home)); box-shadow: 0 0 18px rgba(76, 141, 255, 0.35); }
+.pill { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--edge); background: var(--glass-strong); color: var(--fg); font: 500 13px var(--font); cursor: pointer; transition: background .15s, border-color .15s; }
+.pill:hover { background: rgba(255, 255, 255, 0.14); }
+.pill:focus-visible, button:focus-visible, .spell:focus-visible { outline: 2px solid var(--home); outline-offset: 2px; }
+.pill input { display: none; }
+.pill.on { background: rgba(255, 255, 255, 0.92); color: #0b1a12; border-color: transparent; }
+.spacer { flex: 1; }
+.livedot { display: inline-flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 300; letter-spacing: -0.01em; }
+.livedot i { width: 9px; height: 9px; border-radius: 50%; background: var(--faint); }
+.livedot.on i { background: var(--live); box-shadow: 0 0 12px var(--live); animation: pulse 1.6s infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+.source { font-size: 12px; color: var(--muted); max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* grid */
+.grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) 400px; grid-template-areas: "stage side" "timeline side" "spells spells"; }
+.stage { grid-area: stage; } .side { grid-area: side; display: grid; gap: 16px; align-content: start; }
+.timeline { grid-area: timeline; } .spells { grid-area: spells; }
+@media (max-width: 1100px) { .grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "stage" "side" "timeline" "spells"; } }
+.card { padding: 18px 20px; min-width: 0; }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.card-head .hint { font-size: 12px; color: var(--faint); }
+
+/* stage */
+.stage { padding: 12px; display: grid; gap: 10px; }
+.screen { position: relative; border-radius: 16px; overflow: hidden; background: #020805; aspect-ratio: 16 / 9; max-width: 100%; }
+.screen video, .screen canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.screen video { object-fit: contain; background: #000; }
+.score { position: absolute; left: 14px; top: 14px; display: flex; align-items: center; gap: 10px; padding: 7px 12px; border-radius: 12px; background: rgba(0, 0, 0, 0.45); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); font-weight: 600; font-size: 13px; border: 1px solid var(--edge); }
+.score .sw { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+.state-chip { position: absolute; right: 14px; top: 14px; padding: 7px 12px; border-radius: 12px; font-weight: 600; font-size: 13px; background: rgba(0, 0, 0, 0.45); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid var(--edge); display: flex; align-items: center; gap: 8px; }
+.state-chip i { width: 9px; height: 9px; border-radius: 50%; }
+.empty { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 12px; color: var(--muted); padding: 24px; }
+.empty b { color: var(--fg); font-size: 20px; font-weight: 500; letter-spacing: -0.01em; }
+.controls { display: flex; align-items: center; gap: 10px; padding: 4px 6px; flex-wrap: wrap; }
+.ctl { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--edge); background: var(--glass-strong); color: var(--fg); display: grid; place-items: center; cursor: pointer; }
+.ctl:hover { background: rgba(255, 255, 255, 0.15); }
+.ctl svg { width: 16px; height: 16px; fill: currentColor; }
+.ctl.play { width: 44px; height: 44px; background: rgba(255, 255, 255, 0.92); color: #0b1a12; }
+.clock { font-variant-numeric: tabular-nums; font-size: 15px; color: var(--fg); min-width: 120px; }
+.clock span { color: var(--faint); }
+.scrub { flex: 1; min-width: 160px; height: 38px; position: relative; cursor: pointer; }
+.scrub canvas { width: 100%; height: 100%; display: block; }
+.speed { height: 34px; border-radius: 999px; padding: 0 12px; background: var(--glass-strong); border: 1px solid var(--edge); color: var(--fg); font: 500 13px var(--font); }
+.offset { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.offset input { width: 70px; height: 30px; border-radius: 10px; border: 1px solid var(--edge); background: var(--glass); color: var(--fg); padding: 0 8px; font: 13px var(--mono); }
+
+/* possession */
+.poss-nums { display: flex; justify-content: space-between; align-items: flex-end; }
+.big { font-size: 46px; font-weight: 200; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+.team-name { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 13px; margin-bottom: 6px; }
+.team-name i { width: 9px; height: 9px; border-radius: 50%; }
+.poss-bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; margin-top: 14px; gap: 3px; }
+.poss-bar div { border-radius: 999px; transition: width .25s; }
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+.fact { background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: var(--r-md); padding: 10px 12px; }
+.fact b { display: block; font-size: 18px; font-weight: 400; font-variant-numeric: tabular-nums; margin-top: 4px; }
+.fact small { color: var(--faint); font-size: 11px; }
+.pitch-box { position: relative; aspect-ratio: 105 / 68; max-width: 100%; border-radius: 12px; overflow: hidden; }
+.pitch-box canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+/* timeline */
+.tl-wrap { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 8px 12px; align-items: center; }
+.tl-wrap .label { text-align: right; }
+.tl { height: 26px; position: relative; cursor: pointer; }
+.tl.zoom { height: 46px; }
+.tl canvas { width: 100%; height: 100%; display: block; }
+.agree { font-size: 12px; color: var(--muted); }
+.agree b { color: var(--good); font-weight: 600; }
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+/* spells */
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--edge); background: transparent; color: var(--muted); font: 500 12px var(--font); cursor: pointer; }
+.chip.on { background: rgba(255, 255, 255, 0.9); color: #0b1a12; border-color: transparent; }
+.spell-list { max-height: 330px; overflow-y: auto; display: grid; position: relative; gap: 6px; margin-top: 14px; padding-right: 4px; }
+.spell { display: grid; grid-template-columns: 4px minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.035); border: 1px solid transparent; cursor: pointer; color: var(--fg); text-align: left; font: inherit; width: 100%; }
+.spell:hover { background: rgba(255, 255, 255, 0.07); }
+.spell.now { border-color: var(--edge); background: rgba(255, 255, 255, 0.09); }
+.spell .stripe { height: 28px; border-radius: 3px; }
+.spell .t { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
+.spell .d { font-variant-numeric: tabular-nums; font-size: 13px; min-width: 52px; text-align: right; }
+.spell .go { font-size: 12px; color: var(--home); font-weight: 600; }
+
+/* head to head */
+.h2h-row { display: grid; grid-template-columns: 70px minmax(0, 1fr) 70px; align-items: center; gap: 10px; margin-top: 12px; }
+.h2h-row .v { font-variant-numeric: tabular-nums; font-size: 15px; }
+.h2h-row .v.r { text-align: right; }
+.h2h-mid { display: grid; gap: 5px; }
+.h2h-mid .label { text-align: center; font-size: 10px; }
+.duo { display: flex; height: 6px; gap: 3px; }
+.duo .l, .duo .r { flex: 1; display: flex; background: rgba(255, 255, 255, 0.06); border-radius: 999px; overflow: hidden; }
+.duo .l { justify-content: flex-end; }
+.duo .l div { background: var(--home); border-radius: 999px; }
+.duo .r div { background: var(--away); border-radius: 999px; }
+.note { font-size: 11px; color: var(--faint); margin-top: 14px; line-height: 1.5; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+@media (max-width: 520px) { .wrap { padding-inline: 16px; } .big { font-size: 36px; } .source { display: none; } }
+</style>
+</head>
+<body>
+<div class="wrap" id="drop">
+  <header class="glass bar">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"></span>Possession Lab</div>
+    <label class="pill" id="data-pill">Load data <input type="file" id="data-file" accept=".json,application/json"></label>
+    <label class="pill" id="video-pill">Load video <input type="file" id="video-file" accept="video/*"></label>
+    <span class="source" id="source">Drop a viewer file (from scripts/export_viewer.py) anywhere on the page</span>
+    <span class="spacer"></span>
+    <span class="livedot" id="live"><i></i>Live</span>
+  </header>
+
+  <main class="grid">
+    <section class="glass stage" aria-label="Picture">
+      <div class="screen" id="screen">
+        <canvas id="big-pitch" aria-label="Tactical view"></canvas>
+        <video id="video" playsinline hidden></video>
+        <div class="score" id="score"><span><i class="sw" style="background:var(--home)"></i><span class="home-name">HOME</span></span><span style="color:var(--faint)">vs</span><span><i class="sw" style="background:var(--away)"></i><span class="away-name">AWAY</span></span></div>
+        <div class="state-chip" id="state-chip"><i style="background:var(--dead)"></i><span>Waiting for data</span></div>
+        <div class="empty" id="empty"><b>Load a viewer file to start</b><span>Run <code>python scripts/export_viewer.py --match metrica1</code>, then use Load data.<br>Add the match video with Load video to watch the labels over the picture.</span></div>
+      </div>
+      <div class="controls">
+        <button class="ctl" id="back" title="Back 5 s" aria-label="Back 5 seconds"><svg viewBox="0 0 24 24"><path d="M11 6v12l-8-6zm9 0v12l-8-6z"/></svg></button>
+        <button class="ctl play" id="play" title="Play / pause (space)" aria-label="Play or pause"><svg viewBox="0 0 24 24" id="play-icon"><path d="M7 5v14l12-7z"/></svg></button>
+        <button class="ctl" id="fwd" title="Forward 5 s" aria-label="Forward 5 seconds"><svg viewBox="0 0 24 24"><path d="M4 6v12l8-6zm9 0v12l8-6z"/></svg></button>
+        <div class="clock" id="clock">00:00 <span>/ 00:00</span></div>
+        <div class="scrub" id="scrub"><canvas id="scrub-canvas"></canvas></div>
+        <select class="speed" id="speed" aria-label="Playback speed"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select>
+        <label class="offset" title="Video seconds that correspond to frame 0">Sync <input id="offset" type="number" step="0.04" value="0"> s</label>
+      </div>
+    </section>
+
+    <aside class="side">
+      <section class="glass card" aria-label="Possession">
+        <div class="card-head"><span class="label">Possession so far</span><span class="hint" id="poss-hint">ball in play only</span></div>
+        <div class="poss-nums">
+          <div><div class="team-name"><i style="background:var(--home)"></i><span class="home-name">HOME</span></div><div class="big" id="poss-home">–</div></div>
+          <div style="text-align:right"><div class="team-name" style="justify-content:flex-end"><span class="away-name">AWAY</span><i style="background:var(--away)"></i></div><div class="big" id="poss-away">–</div></div>
+        </div>
+        <div class="poss-bar"><div id="poss-bar-home" style="background:var(--home);width:50%"></div><div id="poss-bar-away" style="background:var(--away);width:50%"></div></div>
+        <div class="facts">
+          <div class="fact"><small>Current spell</small><b id="cur-spell">–</b></div>
+          <div class="fact"><small>Spells so far</small><b id="n-spells">–</b></div>
+          <div class="fact"><small>Ball in play</small><b id="in-play">–</b></div>
+        </div>
+      </section>
+      <section class="glass card h2h" aria-label="Head to head">
+      <div class="card-head"><span class="label">Head to head</span><span class="hint">outfield shape · live</span></div>
+      <div id="h2h"></div>
+      <p class="note">Shapes use the tracked outfield players at this moment (the deepest player of each side is treated as the keeper). Tracking drops players at times, so treat single frames as indicative.</p>
+    </section>
+      <section class="glass card" id="map-card" aria-label="Pitch map" hidden>
+        <div class="card-head"><span class="label">Pitch map</span><span class="hint num" id="pitch-dims">105 × 68 m</span></div>
+        <div class="pitch-box"><canvas id="small-pitch"></canvas></div>
+      </section>
+    </aside>
+
+    <section class="glass card timeline" aria-label="Possession timeline">
+      <div class="card-head">
+        <span class="label">Possession timeline</span>
+        <div class="legend"><span><i style="background:var(--home)"></i><span class="home-name">HOME</span></span><span><i style="background:var(--away)"></i><span class="away-name">AWAY</span></span><span><i style="background:var(--dead)"></i>Ball dead</span></div>
+      </div>
+      <div class="tl-wrap">
+        <span class="label">Model</span><div class="tl" id="tl-pred"><canvas></canvas></div>
+        <span class="label" id="truth-label" hidden>Reference</span><div class="tl" id="tl-truth" hidden><canvas></canvas></div>
+        <span class="label">± 2 min</span><div class="tl zoom" id="tl-zoom"><canvas></canvas></div>
+      </div>
+      <div class="agree" id="agree" hidden></div>
+    </section>
+
+    <section class="glass card spells" aria-label="Spells">
+      <div class="card-head">
+        <span class="label">Spells <span class="num" id="spell-count"></span></span>
+        <div class="chips" id="chips">
+          <button class="chip on" data-f="HA">All possessions</button>
+          <button class="chip" data-f="H"><span class="home-name">HOME</span></button>
+          <button class="chip" data-f="A"><span class="away-name">AWAY</span></button>
+          <button class="chip" data-f="D">Stoppages</button>
+          <button class="chip" data-f="L">Longest</button>
+        </div>
+      </div>
+      <div class="spell-list" id="spell-list"></div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const NAN = -32768;
+  const css = getComputedStyle(document.documentElement);
+  const C = (name) => css.getPropertyValue(name).trim();
+  const COL = { H: C("--home"), A: C("--away"), D: C("--dead") };
+
+  let M = null;           // loaded payload
+  let frame = 0;          // current frame (float)
+  let playing = false, last = 0, videoOn = false;
+
+  // ---------- data ----------
+  function decode(b64) {
+    const bin = atob(b64), buf = new ArrayBuffer(bin.length), u8 = new Uint8Array(buf);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    return new Int16Array(buf);
+  }
+  function prep(runs) {
+    // runs [[a,b,l]] + prefix sums of H and A frames, for share-so-far lookups
+    const starts = runs.map(r => r[0]), cumH = [0], cumA = [0];
+    runs.forEach(([a, b, l]) => { cumH.push(cumH.at(-1) + (l === "H" ? b - a : 0)); cumA.push(cumA.at(-1) + (l === "A" ? b - a : 0)); });
+    return { runs, starts, cumH, cumA };
+  }
+  function runAt(R, f) {
+    let lo = 0, hi = R.starts.length - 1;
+    while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (R.starts[mid] <= f) lo = mid; else hi = mid - 1; }
+    return lo;
+  }
+  function load(payload) {
+    const m = payload.meta, nSlots = payload.team.length;
+    M = {
+      meta: m, team: payload.team, nSlots,
+      players: decode(payload.players), ball: decode(payload.ball),
+      nSamples: Math.ceil(m.n_frames / m.step),
+      pred: prep(payload.pred), truth: payload.truth ? prep(payload.truth) : null,
+    };
+    document.querySelectorAll(".home-name").forEach(e => e.textContent = m.home);
+    document.querySelectorAll(".away-name").forEach(e => e.textContent = m.away);
+    $("source").textContent = m.source || "";
+    $("pitch-dims").textContent = `${m.pitch[0]} × ${m.pitch[1]} m`;
+    $("empty").hidden = true;
+    $("truth-label").hidden = $("tl-truth").hidden = !M.truth;
+    $("agree").hidden = !M.truth;
+    if (M.truth) M.agreeCum = agreementPrefix(M.pred.runs, M.truth.runs, m.n_frames);
+    frame = 0;
+    buildSpells(); drawStatic(); render();
+  }
+  function agreementPrefix(p, t, n) {
+    // cumulative agreeing frames, sampled each second, for "agreement so far"
+    const step = M.meta.fps, out = new Float64Array(Math.ceil(n / step) + 1);
+    let i = 0, j = 0, acc = 0;
+    for (let f = 0, k = 0; f < n; f++) {
+      while (p[i][1] <= f) i++;
+      while (t[j][1] <= f) j++;
+      if (p[i][2] === t[j][2]) acc++;
+      if ((f + 1) % step === 0) out[++k] = acc;
+    }
+    return out;
+  }
+
+  // ---------- geometry at a frame ----------
+  function sample(f) {
+    const s = Math.min(M.nSamples - 1, Math.max(0, f / M.meta.step));
+    const s0 = Math.floor(s), s1 = Math.min(M.nSamples - 1, s0 + 1), w = s - s0;
+    const pos = (arr, idx, k) => arr[idx * 2 + k];
+    const pl = [];
+    for (let n = 0; n < M.nSlots; n++) {
+      const a = (s0 * M.nSlots + n), b = (s1 * M.nSlots + n);
+      const ax = pos(M.players, a, 0), bx = pos(M.players, b, 0);
+      if (ax === NAN) continue;
+      const ay = pos(M.players, a, 1), by = pos(M.players, b, 1);
+      const x = bx === NAN ? ax : ax + (bx - ax) * w, y = bx === NAN ? ay : ay + (by - ay) * w;
+      pl.push({ x: x / 10, y: y / 10, t: M.team[n] });
+    }
+    let ball = null;
+    const bx0 = M.ball[s0 * 2], bx1 = M.ball[s1 * 2];
+    if (bx0 !== NAN) {
+      const by0 = M.ball[s0 * 2 + 1], by1 = M.ball[s1 * 2 + 1];
+      ball = bx1 === NAN ? { x: bx0 / 10, y: by0 / 10 } : { x: (bx0 + (bx1 - bx0) * w) / 10, y: (by0 + (by1 - by0) * w) / 10 };
+    }
+    return { pl, ball };
+  }
+  function hull(pts) {
+    if (pts.length < 3) return pts.slice();
+    const p = pts.slice().sort((a, b) => a.x - b.x || a.y - b.y);
+    const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+    const lo = [], up = [];
+    for (const q of p) { while (lo.length >= 2 && cross(lo.at(-2), lo.at(-1), q) <= 0) lo.pop(); lo.push(q); }
+    for (const q of p.slice().reverse()) { while (up.length >= 2 && cross(up.at(-2), up.at(-1), q) <= 0) up.pop(); up.push(q); }
+    return lo.slice(0, -1).concat(up.slice(0, -1));
+  }
+  const area = (h) => h.length < 3 ? 0 : Math.abs(h.reduce((s, p, i) => { const q = h[(i + 1) % h.length]; return s + p.x * q.y - q.x * p.y; }, 0)) / 2;
+  function shape(pl) {
+    const L = M.meta.pitch[0];
+    const team = (t) => pl.filter(p => p.t === t);
+    const cx = (ps) => ps.reduce((s, p) => s + p.x, 0) / Math.max(ps.length, 1);
+    const h = team(0), a = team(1), homeLeft = cx(h) <= cx(a);
+    const out = {};
+    for (const [t, ps, left] of [[0, h, homeLeft], [1, a, !homeLeft]]) {
+      if (ps.length < 4) { out[t] = null; continue; }
+      const sorted = ps.slice().sort((p, q) => left ? p.x - q.x : q.x - p.x);
+      const field = sorted.slice(1);                    // drop the deepest = keeper
+      const xs = field.map(p => p.x), ys = field.map(p => p.y);
+      const c = { x: cx(field), y: ys.reduce((s, v) => s + v, 0) / ys.length };
+      const deepest = left ? Math.min(...xs) : L - Math.max(...xs);
+      out[t] = {
+        hull: hull(field), width: Math.max(...ys) - Math.min(...ys), depth: Math.max(...xs) - Math.min(...xs),
+        area: area(hull(field)), line: deepest,
+        compact: field.reduce((s, p) => s + Math.hypot(p.x - c.x, p.y - c.y), 0) / field.length,
+      };
+    }
+    return out;
+  }
+
+  // ---------- drawing ----------
+  function fit(canvas) {
+    const r = canvas.getBoundingClientRect(), d = window.devicePixelRatio || 1;
+    if (canvas.width !== Math.round(r.width * d) || canvas.height !== Math.round(r.height * d)) {
+      canvas.width = Math.round(r.width * d); canvas.height = Math.round(r.height * d);
+    }
+    const g = canvas.getContext("2d"); g.setTransform(d, 0, 0, d, 0, 0);
+    return { g, w: r.width, h: r.height };
+  }
+  function drawPitch(canvas, geo, big) {
+    const { g, w, h } = fit(canvas);
+    const [L, W] = M ? M.meta.pitch : [105, 68];
+    const pad = big ? 26 : 10;
+    const k = Math.min((w - 2 * pad) / L, (h - 2 * pad) / W);
+    const ox = (w - L * k) / 2, oy = (h - W * k) / 2;
+    const X = (x) => ox + x * k, Y = (y) => oy + y * k;
+    g.fillStyle = "#06180f"; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 12; i++) { g.fillStyle = i % 2 ? C("--pitch-a") : C("--pitch-b"); g.fillRect(X(i * L / 12), Y(0), L * k / 12 + 0.5, W * k); }
+    const vg = g.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.2, w / 2, h / 2, Math.max(w, h) * 0.75);
+    vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,0.45)"); g.fillStyle = vg; g.fillRect(0, 0, w, h);
+    g.strokeStyle = C("--line"); g.lineWidth = big ? 1.6 : 1.1;
+    g.strokeRect(X(0), Y(0), L * k, W * k);
+    g.beginPath(); g.moveTo(X(L / 2), Y(0)); g.lineTo(X(L / 2), Y(W)); g.stroke();
+    g.beginPath(); g.arc(X(L / 2), Y(W / 2), 9.15 * k, 0, Math.PI * 2); g.stroke();
+    for (const side of [0, 1]) {
+      const x0 = side ? L : 0, dir = side ? -1 : 1;
+      g.strokeRect(X(Math.min(x0, x0 + dir * 16.5)), Y(W / 2 - 20.16), 16.5 * k, 40.32 * k);
+      g.strokeRect(X(Math.min(x0, x0 + dir * 5.5)), Y(W / 2 - 9.16), 5.5 * k, 18.32 * k);
+      g.beginPath(); g.arc(X(x0 + dir * 11), Y(W / 2), 1.5, 0, Math.PI * 2); g.fillStyle = C("--line"); g.fill();
+    }
+    if (!geo) return;
+    const sh = shape(geo.pl);
+    for (const t of [0, 1]) {
+      if (!sh[t] || sh[t].hull.length < 3) continue;
+      const col = t ? COL.A : COL.H;
+      g.beginPath(); sh[t].hull.forEach((p, i) => i ? g.lineTo(X(p.x), Y(p.y)) : g.moveTo(X(p.x), Y(p.y))); g.closePath();
+      g.fillStyle = col + "26"; g.fill(); g.strokeStyle = col + "cc"; g.lineWidth = big ? 1.6 : 1.1; g.stroke();
+    }
+    const r = big ? Math.max(5, k * 0.95) : Math.max(3.5, k * 0.8);
+    for (const p of geo.pl) {
+      g.beginPath(); g.arc(X(p.x), Y(p.y), r, 0, Math.PI * 2);
+      g.fillStyle = p.t ? COL.A : COL.H; g.fill(); g.lineWidth = 1.4; g.strokeStyle = "rgba(255,255,255,0.85)"; g.stroke();
+    }
+    if (geo.ball) {
+      g.save(); g.shadowColor = "rgba(255,255,255,0.9)"; g.shadowBlur = big ? 14 : 8;
+      g.beginPath(); g.arc(X(geo.ball.x), Y(geo.ball.y), big ? 4.2 : 3, 0, Math.PI * 2); g.fillStyle = "#fff"; g.fill(); g.restore();
+    }
+  }
+  function drawStrip(canvas, R, a, b, opts = {}) {
+    const { g, w, h } = fit(canvas);
+    g.clearRect(0, 0, w, h);
+    const span = b - a, X = (f) => (f - a) / span * w, rad = opts.radius ?? 5;
+    g.save(); g.beginPath(); g.roundRect(0, 0, w, h, rad); g.clip();
+    g.fillStyle = "rgba(255,255,255,0.04)"; g.fillRect(0, 0, w, h);
+    for (let i = runAt(R, a); i < R.runs.length && R.runs[i][0] < b; i++) {
+      const [s, e, l] = R.runs[i]; g.fillStyle = COL[l] || COL.D;
+      g.fillRect(X(Math.max(s, a)), 0, Math.max(X(Math.min(e, b)) - X(Math.max(s, a)), 0.6), h);
+      if (opts.labels && l !== "D" && X(Math.min(e, b)) - X(Math.max(s, a)) > 46) {
+        g.fillStyle = "rgba(255,255,255,0.92)"; g.font = "600 11px " + C("--font");
+        g.fillText(`${((e - s) / M.meta.fps).toFixed(1)} s`, X(Math.max(s, a)) + 6, h / 2 + 4);
+      }
+    }
+    g.restore();
+    if (opts.periods) for (const [s] of M.meta.periods.slice(1)) { g.fillStyle = "rgba(255,255,255,0.7)"; g.fillRect(X(s) - 0.5, 0, 1, h); }
+    if (frame >= a && frame <= b) { g.fillStyle = "#fff"; g.fillRect(X(frame) - 1, -2, 2, h + 4); }
+  }
+  function drawStatic() { /* static layers are cheap enough to redraw per frame */ }
+
+  // ---------- panels ----------
+  const fmt = (f) => { const s = Math.max(0, Math.floor(f / (M ? M.meta.fps : 25))); return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`; };
+  function updatePossession() {
+    const R = M.pred, i = runAt(R, frame), [a, , l] = R.runs[i];
+    const into = frame - a;
+    const h = R.cumH[i] + (l === "H" ? into : 0), aw = R.cumA[i] + (l === "A" ? into : 0);
+    const tot = h + aw, ph = tot ? Math.round(100 * h / tot) : 50;
+    $("poss-home").textContent = tot ? ph + "%" : "–"; $("poss-away").textContent = tot ? (100 - ph) + "%" : "–";
+    $("poss-bar-home").style.width = ph + "%"; $("poss-bar-away").style.width = (100 - ph) + "%";
+    const name = l === "H" ? M.meta.home : l === "A" ? M.meta.away : null;
+    const chip = $("state-chip");
+    chip.querySelector("i").style.background = COL[l];
+    chip.querySelector("span").textContent = name ? `${name} ball · ${(into / M.meta.fps).toFixed(1)} s` : `Ball dead · ${(into / M.meta.fps).toFixed(1)} s`;
+    $("cur-spell").textContent = `${(into / M.meta.fps).toFixed(1)} s`;
+    $("n-spells").textContent = R.runs.slice(0, i + 1).filter(r => r[2] !== "D").length;
+    $("in-play").textContent = frame > 0 ? Math.round(100 * tot / Math.max(frame, 1)) + "%" : "–";
+    if (M.truth) {
+      const k = Math.floor(frame / M.meta.fps), agree = M.agreeCum[k] || 0;
+      $("agree").innerHTML = `Model agrees with the reference labels on <b>${k ? Math.round(100 * agree / (k * M.meta.fps)) : 0}%</b> of frames so far.`;
+    }
+    return i;
+  }
+  function updateH2H(geo) {
+    const sh = shape(geo.pl), rows = [["Width", "width", "m", 1], ["Depth", "depth", "m", 1], ["Area held", "area", "m²", 0], ["Defensive line", "line", "m", 1], ["Compactness", "compact", "m", 1]];
+    $("h2h").innerHTML = rows.map(([name, key, unit, dp]) => {
+      const a = sh[0]?.[key], b = sh[1]?.[key], max = Math.max(a || 0, b || 0, 1e-6);
+      const v = (x) => x == null ? "–" : `${x.toFixed(dp)} ${unit}`;
+      return `<div class="h2h-row"><span class="v num">${v(a)}</span><div class="h2h-mid"><span class="label">${name}</span><div class="duo"><div class="l"><div style="width:${100 * (a || 0) / max}%"></div></div><div class="r"><div style="width:${100 * (b || 0) / max}%"></div></div></div></div><span class="v r num">${v(b)}</span></div>`;
+    }).join("");
+  }
+  let filter = "HA", spellNodes = [];
+  function buildSpells() {
+    const R = M.pred.runs;
+    let list = R.map((r, i) => ({ r, i })).filter(({ r }) => filter === "L" ? r[2] !== "D" : filter.includes(r[2]));
+    if (filter === "L") list = list.sort((p, q) => (q.r[1] - q.r[0]) - (p.r[1] - p.r[0])).slice(0, 40);
+    $("spell-count").textContent = `· ${list.length}`;
+    const name = (l) => l === "H" ? `${M.meta.home} possession` : l === "A" ? `${M.meta.away} possession` : "Stoppage";
+    $("spell-list").innerHTML = list.slice(0, 600).map(({ r: [s, e, l], i }) =>
+      `<button class="spell" data-i="${i}" data-f="${s}"><span class="stripe" style="background:${COL[l]}"></span><span>${name(l)}</span><span class="t">${fmt(s)}</span><span class="d">${((e - s) / M.meta.fps).toFixed(1)} s</span></button>`).join("");
+    spellNodes = [...$("spell-list").children];
+  }
+  let lastRun = -1;
+  function markSpell(i) {
+    if (i === lastRun) return; lastRun = i;
+    let hit = null;
+    spellNodes.forEach(n => { const on = +n.dataset.i === i; n.classList.toggle("now", on); if (on) hit = n; });
+    const list = $("spell-list");
+    if (hit && (hit.offsetTop < list.scrollTop || hit.offsetTop > list.scrollTop + list.clientHeight - hit.offsetHeight))
+      list.scrollTop = hit.offsetTop - list.clientHeight / 3;
+  }
+
+  // ---------- render loop ----------
+  function render() {
+    if (!M) return;
+    const n = M.meta.n_frames;
+    frame = Math.min(Math.max(frame, 0), n - 1);
+    const geo = sample(frame);
+    drawPitch(videoOn ? $("small-pitch") : $("big-pitch"), geo, !videoOn);
+    drawStrip($("scrub-canvas"), M.pred, 0, n, { radius: 6, periods: true });
+    drawStrip($("tl-pred").querySelector("canvas"), M.pred, 0, n, { periods: true });
+    if (M.truth) drawStrip($("tl-truth").querySelector("canvas"), M.truth, 0, n, { periods: true });
+    const win = 120 * M.meta.fps;
+    drawStrip($("tl-zoom").querySelector("canvas"), M.pred, Math.max(0, frame - win), Math.min(n, frame + win), { labels: true, radius: 8 });
+    $("clock").innerHTML = `${fmt(frame)} <span>/ ${fmt(n)}</span>`;
+    markSpell(updatePossession());
+    updateH2H(geo);
+  }
+  function tick(t) {
+    if (playing && !videoOn) {
+      const dt = last ? (t - last) / 1000 : 0;
+      frame += dt * M.meta.fps * +$("speed").value;
+      if (frame >= M.meta.n_frames - 1) setPlaying(false);
+    }
+    if (videoOn) frame = ($("video").currentTime - +$("offset").value) * M.meta.fps;
+    last = t;
+    if (M && (playing || videoOn)) render();
+    requestAnimationFrame(tick);
+  }
+  function setPlaying(on) {
+    if (!M) return;
+    playing = on;
+    $("live").classList.toggle("on", on);
+    $("play-icon").innerHTML = on ? '<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+    if (videoOn) on ? $("video").play() : $("video").pause();
+  }
+  function seek(f) {
+    if (!M) return;
+    frame = Math.min(Math.max(f, 0), M.meta.n_frames - 1);
+    if (videoOn) $("video").currentTime = frame / M.meta.fps + +$("offset").value;
+    render();
+  }
+
+  // ---------- wiring ----------
+  async function readJSON(file) {
+    try { load(JSON.parse(await file.text())); }
+    catch (err) { $("source").textContent = "That file is not a viewer export. Create one with scripts/export_viewer.py."; }
+  }
+  $("data-file").addEventListener("change", (e) => e.target.files[0] && readJSON(e.target.files[0]));
+  $("video-file").addEventListener("change", (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    const v = $("video"); v.src = URL.createObjectURL(f); v.hidden = false; v.muted = true;
+    videoOn = true; $("big-pitch").hidden = true; $("map-card").hidden = false; $("video-pill").classList.add("on");
+    v.playbackRate = +$("speed").value; render();
+  });
+  $("drop").addEventListener("dragover", (e) => e.preventDefault());
+  $("drop").addEventListener("drop", (e) => {
+    e.preventDefault();
+    for (const f of e.dataTransfer.files) {
+      if (f.type.startsWith("video/")) { const dt = new DataTransfer(); dt.items.add(f); $("video-file").files = dt.files; $("video-file").dispatchEvent(new Event("change")); }
+      else readJSON(f);
+    }
+  });
+  $("play").onclick = () => setPlaying(!playing);
+  $("back").onclick = () => seek(frame - 5 * (M?.meta.fps || 25));
+  $("fwd").onclick = () => seek(frame + 5 * (M?.meta.fps || 25));
+  $("speed").onchange = () => { $("video").playbackRate = +$("speed").value; };
+  $("offset").onchange = () => seek(frame);
+  const seekFrom = (el) => (e) => { if (!M) return; const r = el.getBoundingClientRect(); seek((e.clientX - r.left) / r.width * M.meta.n_frames); };
+  $("scrub").addEventListener("click", seekFrom($("scrub")));
+  $("tl-pred").addEventListener("click", seekFrom($("tl-pred")));
+  $("tl-truth").addEventListener("click", seekFrom($("tl-truth")));
+  $("tl-zoom").addEventListener("click", (e) => {
+    if (!M) return; const r = $("tl-zoom").getBoundingClientRect(), win = 120 * M.meta.fps;
+    const a = Math.max(0, frame - win), b = Math.min(M.meta.n_frames, frame + win);
+    seek(a + (e.clientX - r.left) / r.width * (b - a));
+  });
+  $("spell-list").addEventListener("click", (e) => { const b = e.target.closest(".spell"); if (b) seek(+b.dataset.f); });
+  $("chips").addEventListener("click", (e) => {
+    const c = e.target.closest(".chip"); if (!c || !M) return;
+    document.querySelectorAll(".chip").forEach(x => x.classList.toggle("on", x === c));
+    filter = c.dataset.f; lastRun = -1; buildSpells(); render();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+    if (e.code === "Space") { e.preventDefault(); setPlaying(!playing); }
+    if (e.code === "ArrowLeft") seek(frame - 5 * (M?.meta.fps || 25));
+    if (e.code === "ArrowRight") seek(frame + 5 * (M?.meta.fps || 25));
+  });
+  new ResizeObserver(() => M ? render() : drawPitch($("big-pitch"), null, true)).observe(document.body);
+  drawPitch($("big-pitch"), null, true);
+  requestAnimationFrame(tick);
+  // Served locally (python -m http.server in viewer/)? ?data=out/<file>.json loads it directly.
+  const auto = new URLSearchParams(location.search).get("data");
+  if (auto) fetch(auto).then(r => r.json()).then(load)
+    .catch(() => { $("source").textContent = `Could not load ${auto}. Use Load data instead.`; });
+})();
+</script>
+</body>
+</html>

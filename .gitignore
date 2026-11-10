@@ -73,3 +73,6 @@ config/*.local.json
 # vision video renders
 video/out/
 video/assets/
+
+# possession viewer exports (can hold match-derived positions and labels, R6)
+viewer/out/
