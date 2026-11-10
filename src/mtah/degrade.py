@@ -146,3 +146,39 @@ def degrade(track: MatchTracking, cfg: DegradeConfig, rng: np.random.Generator) 
     if cfg.player_missing_frac > 0:
         players = _drop_players(players, track.team_of_slot, cfg.player_missing_frac, rng)
     return replace(track, ball=ball, players=players)
+
+
+def _start_rate_ratio(started: np.ndarray, visible: np.ndarray, condition: np.ndarray) -> float:
+    """(gap starts per visible frame where condition) / (same where not), clipped to [1, 10]."""
+    inside, outside = visible & condition, visible & ~condition
+    if not inside.any() or not outside.any():
+        return 1.0
+    if not started[outside].any():
+        return 10.0 if started[inside].any() else 1.0
+    ratio = started[inside].mean() / started[outside].mean()
+    return float(np.clip(ratio, 1.0, 10.0))
+
+
+def measure_knobs(track: MatchTracking) -> dict:
+    """The realism knobs measured from tracking alone (no labels), over in-play frames.
+
+    A gap start is a visible ball frame followed by a missing one; its edge / slow condition is
+    read on that last visible frame."""
+    in_play = in_play_mask(track.players)
+    ball, players = track.ball[in_play], track.players[in_play]
+    visible = np.isfinite(ball[:, 0])
+    started = np.zeros(len(ball), dtype=bool)
+    started[:-1] = visible[:-1] & ~visible[1:]
+    length, width = track.pitch
+    with np.errstate(invalid="ignore"):
+        off = visible & ((ball[:, 0] < 0) | (ball[:, 0] > length) | (ball[:, 1] < 0)
+                         | (ball[:, 1] > width))
+    team = track.team_of_slot >= 0
+    tracked = np.isfinite(players[:, team, 0]).sum(axis=1)
+    return {
+        "edge_boost": _start_rate_ratio(started, visible, near_edge(ball, track.pitch)),
+        "slow_boost": _start_rate_ratio(started, visible, slow_play(players, track.fps)),
+        "offpitch_visible": bool(visible.any() and off.sum() / visible.sum() > 0.002),
+        "player_missing_frac": float(np.clip(1 - tracked.mean() / 22, 0.0, 0.6))
+        if len(tracked) else 0.0,
+    }

@@ -9,7 +9,7 @@ import json
 
 import numpy as np
 
-from mtah.degrade import CONFIG_DIR, in_play_mask
+from mtah.degrade import CONFIG_DIR, in_play_mask, measure_knobs
 from mtah.io.match import load_match
 
 
@@ -34,6 +34,7 @@ def main() -> None:
         "gap_len_median_frames": int(np.median(gaps)) if len(gaps) else 1,
         "gap_len_sigma": float(np.std(np.log(gaps))) if len(gaps) > 1 else 1.0,
         "id_switch_per_min": float(starts / minutes / 2),
+        **measure_knobs(track),  # edge/slow-weighted ball loss, off-pitch ball, player dropout
     }
     (CONFIG_DIR / "degradation.local.json").write_text(json.dumps(config, indent=2))
     print("written")

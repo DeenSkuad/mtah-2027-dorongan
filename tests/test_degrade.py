@@ -139,3 +139,48 @@ def test_scenario_unknown_raises():
     assert scenario(DegradeConfig(), "all").edge_boost == SCENARIOS["edge"]["edge_boost"]
     with pytest.raises(KeyError):
         scenario(DegradeConfig(), "edgy")
+
+
+def _gappy(edge_only: bool, T=40_000, seed=3):
+    """Ball visible except 1-frame gaps that start either only near the edge or anywhere."""
+    from mtah.degrade import near_edge
+
+    track = synthetic(T=T, seed=seed)
+    ball = track.ball.copy()
+    ball[100:300] = ball[99]  # remove the pre-existing gap
+    rng = np.random.default_rng(seed)
+    edge = near_edge(ball, track.pitch)
+    pool = np.flatnonzero(edge[:-1]) if edge_only else np.arange(T - 1)
+    starts = rng.choice(pool, size=400, replace=False) + 1
+    ball[starts] = np.nan
+    return MatchTracking(track.players, track.team_of_slot, ball, track.periods, track.pitch)
+
+
+def _full_pitch(track, n_players=22):
+    """Pad to n_players team slots so in_play_mask (>=18 tracked) holds."""
+    T = track.n_frames()
+    extra = n_players - track.players.shape[1]
+    players = np.concatenate([track.players, np.full((T, extra, 2), 30.0, np.float32)], axis=1)
+    team = np.array([0] * (n_players // 2) + [1] * (n_players // 2), np.int8)
+    return MatchTracking(players, team, track.ball, track.periods, track.pitch)
+
+
+def test_measure_edge_boost():
+    from mtah.degrade import measure_knobs
+
+    assert measure_knobs(_full_pitch(_gappy(edge_only=True)))["edge_boost"] > 3
+    assert measure_knobs(_full_pitch(_gappy(edge_only=False)))["edge_boost"] < 1.5
+
+
+def test_measure_offpitch_and_players():
+    from mtah.degrade import measure_knobs
+
+    track = _full_pitch(_gappy(edge_only=False))
+    knobs = measure_knobs(track)
+    assert knobs["offpitch_visible"] is False
+    assert knobs["player_missing_frac"] == 0.0
+    players = track.players.copy()
+    players[:, :4] = np.nan  # 18 of 22 tracked
+    fewer = MatchTracking(players, track.team_of_slot, track.ball, track.periods, track.pitch)
+    assert abs(measure_knobs(fewer)["player_missing_frac"] - 4 / 22) < 1e-6
+    assert set(knobs) == {"edge_boost", "slow_boost", "offpitch_visible", "player_missing_frac"}
