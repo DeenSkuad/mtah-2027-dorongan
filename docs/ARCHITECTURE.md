@@ -4,7 +4,8 @@
 
 ```
                     ┌──────────────────────── external (Claude may see) ───────────────────────┐
- IDSSE / DFL  ──►  io/external.load_idsse ──► MatchTracking + true labels
+ IDSSE / DFL  ──►  io/external.load_idsse ─┐
+ Metrica ×2   ──►  io/metrica.load_metrica ┴► load_external ──► MatchTracking + true labels
                                                    │
                                           degrade.degrade(cfg)   ◄── config/degradation.*.json
                                                    │
@@ -29,7 +30,8 @@ match values.
 |---|---|
 | `mtah.constants` | label codes (identical to the official scorer), FPS, pitch, paths, `official_metrics()` |
 | `mtah.schema` | `MatchTracking`: players `(T,N,2)`, `team_of_slot (N,)`, ball `(T,2)`, periods, pitch — metres, corner origin, NaN = missing |
-| `mtah.io.external` | IDSSE/DFL download + parse + `.npz` cache in `~/.cache/mtah/idsse` |
+| `mtah.io.external` | IDSSE/DFL download + parse + `.npz` cache in `~/.cache/mtah/idsse`; `load_external` / `EXTERNAL_MATCHES` registry |
+| `mtah.io.metrica` | Metrica sample games 1-2; labels rebuilt from events; cache in `~/.cache/mtah/metrica` |
 | `mtah.io.match` | BAR-ATH tactical ATD → `MatchTracking` (human-run) |
 | `mtah.degrade` | ball dropout (log-normal gaps to a target fraction) + same-team ID switches |
 | `mtah.predictors` | `PREDICTORS` registry; `baseline.nearest_player` = upstream parity |

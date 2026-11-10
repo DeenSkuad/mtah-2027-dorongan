@@ -15,6 +15,8 @@ from mtah.schema import MatchTracking
 IDSSE_MATCHES = ("J03WMX", "J03WN1", "J03WOH", "J03WOY", "J03WPY", "J03WQQ", "J03WR9")
 DEFAULT_CACHE = Path.home() / ".cache" / "mtah" / "idsse"
 CACHE_VERSION = 2  # bump whenever parsing or label semantics change
+METRICA_IDS = ("metrica1", "metrica2")  # Metrica Sports sample games 1-2, see mtah.io.metrica
+EXTERNAL_MATCHES = IDSSE_MATCHES + METRICA_IDS  # the full bench: 2 providers, 9 matches
 
 
 def _cache_path(match_id: str, cache_dir: Path) -> Path:
@@ -61,9 +63,12 @@ def _labels_from_frames(frames, home_team) -> np.ndarray:
     return labels
 
 
-def _to_track(dataset) -> MatchTracking:
-    length = float(dataset.metadata.pitch_dimensions.pitch_length)
-    width = float(dataset.metadata.pitch_dimensions.pitch_width)
+def _to_track(dataset, default_pitch: tuple[float, float] = (105.0, 68.0)) -> MatchTracking:
+    """kloppy dataset (normalised 'kloppy' coordinates) -> MatchTracking in metres. Providers
+    that publish no pitch size (Metrica) get default_pitch."""
+    dims = dataset.metadata.pitch_dimensions
+    length = float(dims.pitch_length or default_pitch[0])
+    width = float(dims.pitch_width or default_pitch[1])
     home, away = dataset.metadata.teams[0], dataset.metadata.teams[1]
     roster = [p for p in home.players] + [p for p in away.players]
     slot_of = {p.player_id: i for i, p in enumerate(roster)}
@@ -90,15 +95,25 @@ def _to_track(dataset) -> MatchTracking:
                          int(round(dataset.metadata.frame_rate)))
 
 
+def _load_cached(cached: Path) -> tuple[MatchTracking, np.ndarray]:
+    z = np.load(cached)
+    periods = tuple(map(tuple, z["periods"].tolist()))
+    track = MatchTracking(z["players"], z["team_of_slot"], z["ball"], periods,
+                          tuple(z["pitch"].tolist()), int(z["fps"]))
+    return track, z["labels"]
+
+
+def _save_cached(cached: Path, track: MatchTracking, labels: np.ndarray) -> None:
+    np.savez_compressed(cached, players=track.players, team_of_slot=track.team_of_slot,
+                        ball=track.ball, periods=np.array(track.periods),
+                        pitch=np.array(track.pitch), fps=track.fps, labels=labels)
+
+
 def load_idsse(match_id: str, cache_dir: Path = DEFAULT_CACHE) -> tuple[MatchTracking, np.ndarray]:
     """One IDSSE match as (MatchTracking, labels). Parsed once, then served from an .npz cache."""
     cached = _cache_path(match_id, cache_dir)
     if cached.exists():
-        z = np.load(cached)
-        periods = tuple(map(tuple, z["periods"].tolist()))
-        track = MatchTracking(z["players"], z["team_of_slot"], z["ball"], periods,
-                              tuple(z["pitch"].tolist()), int(z["fps"]))
-        return track, z["labels"]
+        return _load_cached(cached)
 
     from kloppy import sportec
 
@@ -108,7 +123,14 @@ def load_idsse(match_id: str, cache_dir: Path = DEFAULT_CACHE) -> tuple[MatchTra
     track = _to_track(dataset)
     labels = _labels_from_frames(dataset.frames, dataset.metadata.teams[0])
     track.validate()
-    np.savez_compressed(cached, players=track.players, team_of_slot=track.team_of_slot,
-                        ball=track.ball, periods=np.array(track.periods),
-                        pitch=np.array(track.pitch), fps=track.fps, labels=labels)
+    _save_cached(cached, track, labels)
     return track, labels
+
+
+def load_external(match_id: str) -> tuple[MatchTracking, np.ndarray]:
+    """Any bench match by id: IDSSE codes or metrica1/metrica2."""
+    from mtah.io import metrica
+
+    if match_id in metrica.METRICA_MATCHES:
+        return metrica.load_metrica(match_id)
+    return load_idsse(match_id)

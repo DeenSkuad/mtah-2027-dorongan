@@ -51,16 +51,29 @@ def bench(predictors: dict, match_ids, cfg, seed: int = 0):
     import pandas as pd
 
     from mtah.degrade import degrade
-    from mtah.io.external import load_idsse
+    from mtah.io.external import load_external
 
     rows = []
     for match_id in match_ids:
-        clean, labels = load_idsse(match_id)
+        clean, labels = load_external(match_id)
         track = degrade(clean, cfg, np.random.default_rng(match_seed(seed, match_id)))
         for name, predictor in predictors.items():
             rows.append({"predictor": name, "match": match_id,
                          **score(labels, predictor(track), track.periods)})
-    table = pd.DataFrame(rows)
-    means = table.groupby("predictor", sort=False).mean(numeric_only=True).reset_index()
-    means.insert(1, "match", "MEAN")
+    return summarise(pd.DataFrame(rows))
+
+
+def source_of(match_id: str) -> str:
+    return "metrica" if match_id.startswith("metrica") else "idsse"
+
+
+def summarise(table):
+    """Append one 'MEAN <source>' row per predictor and source. Sources are never pooled:
+    Metrica's event-derived labels score far higher, and IDSSE is the one that tracks the board."""
+    import pandas as pd
+
+    sources = table["match"].map(source_of)
+    means = (table.assign(source=sources)
+             .groupby(["predictor", "source"], sort=False).mean(numeric_only=True).reset_index())
+    means.insert(1, "match", "MEAN " + means.pop("source"))
     return pd.concat([table, means], ignore_index=True)

@@ -9,7 +9,7 @@ from datetime import datetime
 from mtah.constants import REPO_ROOT
 from mtah.degrade import load_config
 from mtah.eval.harness import bench
-from mtah.io.external import IDSSE_MATCHES
+from mtah.io.external import EXTERNAL_MATCHES
 from mtah.predictors import PREDICTORS
 
 
@@ -21,7 +21,7 @@ def main() -> None:
     args = parser.parse_args()
 
     names = args.predictors.split(",")
-    matches = IDSSE_MATCHES if args.matches == "all" else args.matches.split(",")
+    matches = EXTERNAL_MATCHES if args.matches == "all" else args.matches.split(",")
     table = bench({n: PREDICTORS[n] for n in names}, matches, load_config(), seed=args.seed)
 
     print(table.round(4).to_string(index=False))

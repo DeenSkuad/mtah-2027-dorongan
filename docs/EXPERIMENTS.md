@@ -3,6 +3,8 @@
 ## Internal benchmark (`make bench`) — decides
 
 Degraded IDSSE matches (ball hidden 41%, ID switches). spellF1 differences < 0.04 are noise.
+Since run 3 the bench also scores 2 Metrica sample games and reports `MEAN idsse` and
+`MEAN metrica` separately. **`MEAN idsse` decides**; Metrica must agree on the ranking.
 
 | # | Date | Who | Predictor | Matches | spellF1 | macroF1 | spells pred/gt | dur pred/gt (s) | Notes |
 |---|---|---|---|---|---|---|---|---|---|
@@ -12,6 +14,9 @@ Degraded IDSSE matches (ball hidden 41%, ID switches). spellF1 differences < 0.0
 | 2 | 2026-10-31 | setup | baseline25 | all 7 | 0.1710 | 0.4336 | 894/437 | 5.2/7.3 | |
 | 2 | 2026-10-31 | setup | **baseline50** | all 7 | **0.2299** | 0.4199 | 582/437 | 8.8/7.3 | organisers' full-match floor for this method: 0.2433 — bench tracks the real board closely |
 | 2 | 2026-10-31 | setup | baseline125 | all 7 | 0.2052 | 0.3884 | 305/437 | 18.4/7.3 | |
+| 3 | 2026-11-10 | setup | baseline25 | metrica ×2 | 0.3620 | 0.8037 | 629/368 | 5.8/10.3 | second provider; labels rebuilt from events (smoother → scores far higher, never pool with IDSSE) |
+| 3 | 2026-11-10 | setup | **baseline50** | metrica ×2 | **0.4154** | 0.7955 | 469/368 | 8.1/10.3 | same ranking as IDSSE → bench generalises across providers; IDSSE mean unchanged 0.2299 |
+| 3 | 2026-11-10 | setup | baseline125 | metrica ×2 | 0.2902 | 0.7265 | 374/368 | 11.5/10.3 | |
 
 ## Public 5 minutes — sanity only, never for selection (R3)
 
