@@ -1,6 +1,6 @@
 PY := .venv/bin/python -W ignore
 
-.PHONY: help setup lock test lint bench baseline eval validate submission measure sync notebook
+.PHONY: help setup lock test e2e lint bench baseline eval validate submission measure sync notebook
 
 help:            ## list targets
 	@grep -E '^[a-z]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*##/\t/'
@@ -14,6 +14,9 @@ lock:            ## pin the exact environment (R5)
 
 test:            ## unit tests (no match data, no network)
 	$(PY) -m pytest -q
+
+e2e:             ## Playwright tests of the viewer page (installed Chrome, synthetic tracking)
+	$(PY) -m pytest -q -m e2e tests/e2e
 
 lint:            ## ruff
 	.venv/bin/ruff check src tests scripts

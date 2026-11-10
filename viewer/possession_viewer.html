@@ -158,6 +158,8 @@ body {
 .duo .l div { background: var(--home); border-radius: 999px; }
 .duo .r div { background: var(--away); border-radius: 999px; }
 .note { font-size: 11px; color: var(--faint); margin-top: 14px; line-height: 1.5; }
+.warn { padding: 12px 18px; border-color: rgba(255, 159, 10, 0.45); background: rgba(255, 159, 10, 0.12); color: var(--fg); font-size: 13px; line-height: 1.5; }
+.warn b { color: #ffb340; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 @media (max-width: 520px) { .wrap { padding-inline: 16px; } .big { font-size: 36px; } .source { display: none; } }
 </style>
@@ -168,10 +170,12 @@ body {
     <div class="brand"><span class="brand-mark" aria-hidden="true"></span>Possession Lab</div>
     <label class="pill" id="data-pill">Load data <input type="file" id="data-file" accept=".json,application/json"></label>
     <label class="pill" id="video-pill">Load video <input type="file" id="video-file" accept="video/*"></label>
-    <span class="source" id="source">Drop a viewer file (from scripts/export_viewer.py) anywhere on the page</span>
+    <span class="source" id="source">Load data takes a .json made by scripts/export_viewer.py (or drop it on the page)</span>
     <span class="spacer"></span>
     <span class="livedot" id="live"><i></i>Live</span>
   </header>
+
+  <div class="glass warn" id="warn" role="alert" hidden></div>
 
   <main class="grid">
     <section class="glass stage" aria-label="Picture">
@@ -294,7 +298,7 @@ body {
     $("agree").hidden = !M.truth;
     if (M.truth) M.agreeCum = agreementPrefix(M.pred.runs, M.truth.runs, m.n_frames);
     frame = 0;
-    buildSpells(); drawStatic(); render();
+    buildSpells(); drawStatic(); render(); checkDuration();
   }
   function agreementPrefix(p, t, n) {
     // cumulative agreeing frames, sampled each second, for "agreement so far"
@@ -523,6 +527,17 @@ body {
     render();
   }
 
+  // ---------- file consistency ----------
+  function checkDuration() {
+    const v = $("video"), w = $("warn");
+    if (!M || !videoOn || !isFinite(v.duration)) { w.hidden = true; return null; }
+    const fileS = M.meta.n_frames / M.meta.fps, gap = Math.abs(v.duration - fileS);
+    const ok = gap <= Math.max(10, 0.02 * fileS);
+    w.hidden = ok;
+    if (!ok) w.innerHTML = `<b>These files don't match.</b> The video is ${fmt(v.duration * M.meta.fps)} long, but the loaded file covers ${fmt(M.meta.n_frames)} (${M.meta.source || "unknown source"}). The pitch map and labels will not line up with the picture. Export the file from the same match with <code>scripts/export_viewer.py</code>.`;
+    return ok;
+  }
+
   // ---------- wiring ----------
   async function readJSON(file) {
     try { load(JSON.parse(await file.text())); }
@@ -534,6 +549,7 @@ body {
     const v = $("video"); v.src = URL.createObjectURL(f); v.hidden = false; v.muted = true;
     videoOn = true; $("big-pitch").hidden = true; $("map-card").hidden = false; $("video-pill").classList.add("on");
     v.playbackRate = +$("speed").value; render();
+    v.addEventListener("loadedmetadata", checkDuration, { once: true });
   });
   $("drop").addEventListener("dragover", (e) => e.preventDefault());
   $("drop").addEventListener("drop", (e) => {
@@ -572,6 +588,8 @@ body {
   new ResizeObserver(() => M ? render() : drawPitch($("big-pitch"), null, true)).observe(document.body);
   drawPitch($("big-pitch"), null, true);
   requestAnimationFrame(tick);
+  // Read-only hook for the Playwright tests (tests/e2e/test_viewer.py).
+  window.possessionLab = { load, seek, checkDuration, state: () => ({ frame, loaded: !!M, videoOn, playing }) };
   // Served locally (python -m http.server in viewer/)? ?data=out/<file>.json loads it directly.
   const auto = new URLSearchParams(location.search).get("data");
   if (auto) fetch(auto).then(r => r.json()).then(load)
