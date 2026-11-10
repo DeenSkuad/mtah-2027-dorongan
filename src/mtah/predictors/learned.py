@@ -78,3 +78,14 @@ def train_on_external(seed: int = 1, **params) -> LearnedPredictor:
     from mtah.io.external import IDSSE_MATCHES
 
     return LearnedPredictor(**params).fit(*degraded_external(IDSSE_MATCHES, seed))
+
+
+_FITTED = None
+
+
+def predict_learned(track: MatchTracking) -> np.ndarray:
+    """Registry entry: fit on all external IDSSE matches once per process, then predict."""
+    global _FITTED
+    if _FITTED is None:
+        _FITTED = train_on_external()
+    return _FITTED(track)

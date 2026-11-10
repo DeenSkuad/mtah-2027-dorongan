@@ -63,6 +63,44 @@ def bench(predictors: dict, match_ids, cfg, seed: int = 0):
     return summarise(pd.DataFrame(rows))
 
 
+def bench_learned(make_model, decoders: dict, match_ids, cfg, seed: int = 0):
+    """Bench a trainable predictor. Each IDSSE match is scored by a model fitted on the other
+    IDSSE matches; other sources by one model fitted on all of them. Training tracks are degraded
+    with seed + 1, scored tracks with seed. decoders maps a predictor name to
+    (switch_cost, dead_cost); each fold computes probabilities once and scores every decoder."""
+    import pandas as pd
+
+    from mtah.degrade import degrade
+    from mtah.io import external
+
+    def degraded(match_id: str, run_seed: int):
+        clean, labels = external.load_external(match_id)
+        return degrade(clean, cfg, np.random.default_rng(match_seed(run_seed, match_id))), labels
+
+    pool = list(external.IDSSE_MATCHES)
+    train = {m: degraded(m, seed + 1) for m in pool}
+
+    def fit(exclude: str | None):
+        kept = [train[m] for m in pool if m != exclude]
+        return make_model().fit([t for t, _ in kept], [lab for _, lab in kept])
+
+    rows, full_model = [], None
+    for match_id in match_ids:
+        track, labels = degraded(match_id, seed)
+        if match_id in train:
+            model = fit(exclude=match_id)
+        else:
+            full_model = full_model or fit(exclude=None)
+            model = full_model
+        proba = model.proba(track)
+        for name, (switch_cost, dead_cost) in decoders.items():
+            pred = model.decode(proba, track.periods, switch_cost=switch_cost,
+                                dead_cost=dead_cost)
+            rows.append({"predictor": name, "match": match_id,
+                         **score(labels, pred, track.periods)})
+    return summarise(pd.DataFrame(rows))
+
+
 def source_of(match_id: str) -> str:
     return "metrica" if match_id.startswith("metrica") else "idsse"
 

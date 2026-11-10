@@ -32,3 +32,43 @@ def test_source_of():
 
     assert source_of("J03WMX") == "idsse"
     assert source_of("metrica2") == "metrica"
+
+
+def test_bench_learned_folds_exclude_heldout(monkeypatch):
+    import numpy as np
+
+    from mtah.eval.harness import bench_learned
+    from mtah.io import external
+    from mtah.schema import MatchTracking
+
+    sizes = {"J1": 200, "J2": 210, "J3": 220, "metrica1": 230}
+
+    def fake_load(match_id):
+        T = sizes[match_id]
+        players = np.zeros((T, 2, 2), dtype=np.float32)
+        ball = np.ones((T, 2), dtype=np.float32)
+        track = MatchTracking(players, np.array([0, 1], dtype=np.int8), ball,
+                              ((0, T // 2), (T // 2, T)), (105.0, 68.0), 25)
+        return track, np.array(["H", "A"] * (T // 2), dtype="<U1")
+
+    fits = []
+
+    class Fake:
+        def fit(self, tracks, labels):
+            fits.append(sorted(t.n_frames() for t in tracks))
+            return self
+
+        def proba(self, track):
+            return np.full((track.n_frames(), 3), 1 / 3)
+
+        def decode(self, proba, periods, switch_cost=None, dead_cost=None):
+            return np.full(len(proba), "H", dtype="<U1")
+
+    monkeypatch.setattr(external, "load_external", fake_load)
+    monkeypatch.setattr(external, "IDSSE_MATCHES", ("J1", "J2", "J3"))
+    table = bench_learned(Fake, {"a": (1, 1), "b": (2, 2)}, list(sizes), DegradeConfig(), seed=0)
+
+    assert fits == [[210, 220], [200, 220], [200, 210], [200, 210, 220]]
+    per_match = table[~table["match"].str.startswith("MEAN")]
+    assert len(per_match) == 2 * 4
+    assert set(table["match"]) >= {"MEAN idsse", "MEAN metrica"}

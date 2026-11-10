@@ -71,3 +71,24 @@ def test_decode_override_costs(train):
     expected = np.array(list("HAD"))[(np.log(proba + 1e-6) - np.log(model.prior)).argmax(axis=1)]
     got = model.decode(proba, track.periods, switch_cost=0, dead_cost=0)
     assert np.array_equal(got, expected)
+
+
+def test_registry_trains_once_lazily(monkeypatch):
+    from mtah.predictors import PREDICTORS, learned
+
+    calls = []
+
+    class Fitted:
+        def __call__(self, track):
+            return np.full(track.n_frames(), "H", dtype="<U1")
+
+    def fake_train(**kw):
+        calls.append(kw)
+        return Fitted()
+
+    monkeypatch.setattr(learned, "train_on_external", fake_train)
+    monkeypatch.setattr(learned, "_FITTED", None)
+    track, _ = synthetic(5, T=200)
+    assert set(PREDICTORS["learned"](track)) == {"H"}
+    PREDICTORS["learned"](track)
+    assert len(calls) == 1
