@@ -30,3 +30,23 @@ class MatchTracking:
             if not (previous_stop <= start < stop <= T):
                 raise ValueError(f"periods must be sorted, non-overlapping, within 0..{T}")
             previous_stop = stop
+
+
+def infer_periods(players: np.ndarray, min_players: int = 18, bridge: int = 3000,
+                  min_len: int = 7500) -> tuple[tuple[int, int], ...]:
+    """Playing periods from player presence alone (no frame constants, rule R4).
+
+    A frame is active when at least min_players slots are tracked. Active runs closer than
+    `bridge` frames (2 min at 25 fps) are joined; joined runs shorter than `min_len` (5 min)
+    are dropped. Pre-match, half-time and post-match fall outside every period. Falls back to
+    one period over everything when nothing qualifies."""
+    active = (~np.isnan(players[:, :, 0])).sum(axis=1) >= min_players
+    edges = np.flatnonzero(np.diff(np.concatenate(([0], active.astype(np.int8), [0]))))
+    runs = []
+    for start, stop in zip(edges[::2], edges[1::2], strict=True):
+        if runs and start - runs[-1][1] < bridge:
+            runs[-1][1] = int(stop)
+        else:
+            runs.append([int(start), int(stop)])
+    periods = tuple((a, b) for a, b in runs if b - a >= min_len)
+    return periods or ((0, len(players)),)

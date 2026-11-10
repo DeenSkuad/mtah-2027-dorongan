@@ -20,6 +20,7 @@ class LearnedPredictor:
         self.max_iter = max_iter
         self.model = None
         self.prior = np.full(3, 1 / 3)
+        self.trained_with = ""  # config_tag of the degradation used for training
 
     def fit(self, tracks: list[MatchTracking], labels: list[np.ndarray]) -> "LearnedPredictor":
         from sklearn.ensemble import HistGradientBoostingClassifier
@@ -58,13 +59,21 @@ class LearnedPredictor:
         return self.decode(self.proba(track), track.periods)
 
 
-def degraded_external(match_ids, seed: int):
+def config_tag(cfg) -> str:
+    """Short hash of a DegradeConfig: says which config trained a model without printing it."""
+    import hashlib
+    import json
+    from dataclasses import asdict
+
+    return hashlib.sha256(json.dumps(asdict(cfg), sort_keys=True).encode()).hexdigest()[:8]
+
+
+def degraded_external(match_ids, seed: int, cfg):
     """(tracks, labels) for external matches, each degraded with its own reproducible seed."""
-    from mtah.degrade import degrade, load_config
+    from mtah.degrade import degrade
     from mtah.eval.harness import match_seed
     from mtah.io.external import load_external
 
-    cfg = load_config()
     tracks, labels = [], []
     for match_id in match_ids:
         clean, label = load_external(match_id)
@@ -73,11 +82,16 @@ def degraded_external(match_ids, seed: int):
     return tracks, labels
 
 
-def train_on_external(seed: int = 1, **params) -> LearnedPredictor:
-    """Fit on all 7 IDSSE matches (degraded with `seed`); what the submission uses."""
+def train_on_external(seed: int = 1, cfg=None, **params) -> LearnedPredictor:
+    """Fit on all 7 IDSSE matches (degraded with `seed`); what the submission uses. cfg defaults
+    to load_config(), i.e. the measured local config when present; see model.trained_with."""
+    from mtah.degrade import load_config
     from mtah.io.external import IDSSE_MATCHES
 
-    return LearnedPredictor(**params).fit(*degraded_external(IDSSE_MATCHES, seed))
+    cfg = load_config() if cfg is None else cfg
+    model = LearnedPredictor(**params).fit(*degraded_external(IDSSE_MATCHES, seed, cfg))
+    model.trained_with = config_tag(cfg)
+    return model
 
 
 _FITTED = None

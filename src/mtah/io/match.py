@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 
 from mtah.constants import DATA_DIR, MATCH_PITCH, N_MATCH_FRAMES, REPO_ROOT
-from mtah.schema import MatchTracking
+from mtah.schema import MatchTracking, infer_periods
 
 
 def _ensure_repo_root_on_path() -> None:
@@ -70,4 +70,5 @@ def load_match(data_dir: Path = DATA_DIR) -> MatchTracking:
             ball[t] = _xy(parts[2])
     players *= scale
     ball *= scale
-    return MatchTracking(players, team_of_slot, ball, ((0, N_MATCH_FRAMES),), MATCH_PITCH)
+    # Halves come from player presence: the learned features need the true period split.
+    return MatchTracking(players, team_of_slot, ball, infer_periods(players), MATCH_PITCH)

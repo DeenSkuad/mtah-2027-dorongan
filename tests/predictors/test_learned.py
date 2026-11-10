@@ -100,3 +100,14 @@ def test_defaults_are_the_bench_winner():
 
     model = LearnedPredictor()
     assert (model.switch_cost, model.dead_cost) == (8.0, 8.0)
+
+
+def test_train_on_external_records_config_tag(monkeypatch, train):
+    from mtah.degrade import DegradeConfig
+    from mtah.predictors import learned
+
+    monkeypatch.setattr(learned, "degraded_external", lambda ids, seed, cfg: train)
+    a = learned.train_on_external(cfg=DegradeConfig(), max_iter=5)
+    b = learned.train_on_external(cfg=DegradeConfig(ball_missing_frac=0.5), max_iter=5)
+    assert len(a.trained_with) == 8 and a.trained_with != b.trained_with
+    assert learned.config_tag(DegradeConfig()) == a.trained_with

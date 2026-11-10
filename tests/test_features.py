@@ -106,3 +106,13 @@ def test_empty_frames():
     assert (col(features, "n_tracked")[50:60] == 0).all()
     assert np.isnan(col(features, "cx_home")[50:60]).all()
     assert np.isnan(col(features, "d_home")[50:60]).all()
+
+
+def test_direction_follows_swap_inside_one_period():
+    """Halves with swapped ends passed as ONE period (half-time not detected): the direction
+    must still flip with the teams, not be decided once for the whole period."""
+    split = make_track(period_len=(6000, 6000), flip_second=True)
+    merged = MatchTracking(split.players, split.team_of_slot, split.ball,
+                           ((0, split.n_frames()),), PITCH, 25)
+    gap = col(frame_features(merged), "cx_gap")
+    assert (gap > 0).mean() > 0.99

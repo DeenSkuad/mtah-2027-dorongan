@@ -13,6 +13,7 @@ CAP = 250  # frames, for since_seen / until_seen
 NEAR = 3.0  # metres, for n_home3 / n_away3
 BALL_SPEED_MAX, PLAYER_SPEED_MAX, SLOW = 40.0, 12.0, 1.0  # m/s
 WINDOWS = (25, 125)
+DIR_WINDOW = 3750  # frames (2.5 min each side) for the attacking-direction estimate
 ROLLED = ("ball_seen", "ball_speed", "d_diff", "v_home", "v_away", "slow_frac", "ball_out")
 
 BASE_NAMES = ("ball_seen", "ball_x", "ball_y", "ball_speed", "ball_out", "since_seen",
@@ -69,15 +70,20 @@ def _period_features(players: np.ndarray, team: np.ndarray, ball: np.ndarray,
                      pitch: tuple[float, float], fps: int) -> dict[str, np.ndarray]:
     length, width = pitch
     home, away = team == 0, team == 1
-    px = players[:, :, 0]
-    with np.errstate(all="ignore"):
-        home_med = np.nanmedian(px[:, home]) if np.isfinite(px[:, home]).any() else np.nan
-        away_med = np.nanmedian(px[:, away]) if np.isfinite(px[:, away]).any() else np.nan
-    if away_med < home_med:  # home attacks -x in this period: mirror
+    # Direction per frame from the team-centroid gap over +/- DIR_WINDOW, so it follows the
+    # half-time swap even when half-time was not split into its own period.
+    px = players[:, :, 0].astype(float)
+    raw_gap = _team_mean(px, away) - _team_mean(px, home)
+    whole = np.nanmean(raw_gap) if np.isfinite(raw_gap).any() else 1.0
+    direction = np.sign(_rolling_mean(np.sign(raw_gap), DIR_WINDOW))  # majority vote
+    direction = np.where(np.isfinite(direction) & (direction != 0), direction,
+                         -1.0 if whole < 0 else 1.0)
+    flip = direction < 0  # home attacks -x here: mirror x
+    if flip.any():
         players = players.copy()
-        players[:, :, 0] = length - players[:, :, 0]
+        players[flip, :, 0] = length - players[flip, :, 0]
         ball = ball.copy()
-        ball[:, 0] = length - ball[:, 0]
+        ball[flip, 0] = length - ball[flip, 0]
 
     seen = np.isfinite(ball[:, 0])
     f = {"ball_seen": seen.astype(float), "ball_x": ball[:, 0].astype(float),

@@ -22,7 +22,14 @@ def main() -> None:
     parser.add_argument("--name", default="team")
     args = parser.parse_args()
 
-    labels = PREDICTORS[args.predictor](load_match())
+    track = load_match()
+    covered = sum(stop - start for start, stop in track.periods) / track.n_frames()
+    print(f"inferred periods: {len(track.periods)}, covering {100 * covered:.0f}% of frames")
+    labels = PREDICTORS[args.predictor](track)
+    if args.predictor == "learned":
+        from mtah.predictors import learned
+
+        print(f"learned model trained with degradation config {learned._FITTED.trained_with}")
     path = write_submission(labels, RESULTS_DIR / f"{args.name}.csv")
 
     metrics = official_metrics()

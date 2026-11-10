@@ -29,13 +29,15 @@ match values.
 | Module | Responsibility |
 |---|---|
 | `mtah.constants` | label codes (identical to the official scorer), FPS, pitch, paths, `official_metrics()` |
-| `mtah.schema` | `MatchTracking`: players `(T,N,2)`, `team_of_slot (N,)`, ball `(T,2)`, periods, pitch — metres, corner origin, NaN = missing |
+| `mtah.schema` | `MatchTracking`: players `(T,N,2)`, `team_of_slot (N,)`, ball `(T,2)`, periods, pitch — metres, corner origin, NaN = missing; `infer_periods` (halves from player presence) |
 | `mtah.io.external` | IDSSE/DFL download + parse + `.npz` cache in `~/.cache/mtah/idsse`; `load_external` / `EXTERNAL_MATCHES` registry |
 | `mtah.io.metrica` | Metrica sample games 1-2; labels rebuilt from events; cache in `~/.cache/mtah/metrica` |
-| `mtah.io.match` | BAR-ATH tactical ATD → `MatchTracking` (human-run) |
+| `mtah.io.match` | BAR-ATH tactical ATD → `MatchTracking`, periods via `infer_periods` (human-run) |
 | `mtah.degrade` | ball dropout (log-normal gaps to a target fraction) + same-team ID switches |
-| `mtah.predictors` | `PREDICTORS` registry; `baseline.nearest_player` = upstream parity |
-| `mtah.eval.harness` | `score()` via the official `evaluate()`; `bench()` over degraded external matches |
+| `mtah.features` | `frame_features(track)` → `(T, 34)` team-aggregate features; direction from a ±2.5 min centroid vote |
+| `mtah.decode` | `viterbi(proba, periods, switch_cost, dead_cost, prior)` → H/A/D path, per period |
+| `mtah.predictors` | `PREDICTORS` registry; `baseline.nearest_player` = upstream parity; `learned.LearnedPredictor` (HistGB + Viterbi) and `predict_learned` (trains on IDSSE on first use) |
+| `mtah.eval.harness` | `score()` via the official `evaluate()`; `bench()` over degraded external matches; `bench_learned()` leave-one-match-out for trainable predictors; per-source `summarise()` |
 | `mtah.submit` | contract checks before writing, official validation after |
 | `mtah.report` | the only way match-side code prints: one line of aggregates |
 
