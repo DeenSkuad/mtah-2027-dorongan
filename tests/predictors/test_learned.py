@@ -92,3 +92,11 @@ def test_registry_trains_once_lazily(monkeypatch):
     assert set(PREDICTORS["learned"](track)) == {"H"}
     PREDICTORS["learned"](track)
     assert len(calls) == 1
+
+
+def test_defaults_are_the_bench_winner():
+    """Run 4 in docs/EXPERIMENTS.md picked switch 8, dead 8 on MEAN idsse. Change both together."""
+    from mtah.predictors.learned import LearnedPredictor
+
+    model = LearnedPredictor()
+    assert (model.switch_cost, model.dead_cost) == (8.0, 8.0)

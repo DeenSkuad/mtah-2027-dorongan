@@ -17,6 +17,10 @@ Since run 3 the bench also scores 2 Metrica sample games and reports `MEAN idsse
 | 3 | 2026-11-10 | setup | baseline25 | metrica ×2 | 0.3620 | 0.8037 | 629/368 | 5.8/10.3 | second provider; labels rebuilt from events (smoother → scores far higher, never pool with IDSSE) |
 | 3 | 2026-11-10 | setup | **baseline50** | metrica ×2 | **0.4154** | 0.7955 | 469/368 | 8.1/10.3 | same ranking as IDSSE → bench generalises across providers; IDSSE mean unchanged 0.2299 |
 | 3 | 2026-11-10 | setup | baseline125 | metrica ×2 | 0.2902 | 0.7265 | 374/368 | 11.5/10.3 | |
+| 4 | 2026-11-10 | claude | **learned_s8_d8** | IDSSE LOMO | **0.4804** | 0.8762 | 323/437 | 9.9/7.3 | features + HistGB + Viterbi (switch 8, dead 8); beats baseline50 on all 7 matches (+0.17 to +0.30) |
+| 4 | 2026-11-10 | claude | learned_s16_d8 | IDSSE LOMO | 0.4756 | 0.8758 | 284/437 | 11.2/7.3 | neighbour |
+| 4 | 2026-11-10 | claude | learned_s8_d4 | IDSSE LOMO | 0.4742 | 0.8757 | 333/437 | 9.6/7.3 | neighbour; the top 9 of 20 grid cells sit within 0.02 (inside the noise band) |
+| 4 | 2026-11-10 | claude | **learned_s8_d8** | metrica ×2 | **0.5366** | 0.8080 | 306/368 | 12.7/10.3 | trained on all 7 IDSSE; also best on Metrica → ranking agrees (baseline50 0.4154) |
 
 ## Public 5 minutes — sanity only, never for selection (R3)
 

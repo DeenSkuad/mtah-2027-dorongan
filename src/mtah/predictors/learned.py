@@ -14,7 +14,7 @@ CLASSES = np.array(["H", "A", "D"])
 
 
 class LearnedPredictor:
-    def __init__(self, switch_cost: float = 8.0, dead_cost: float = 4.0, max_iter: int = 300):
+    def __init__(self, switch_cost: float = 8.0, dead_cost: float = 8.0, max_iter: int = 300):
         self.switch_cost = switch_cost
         self.dead_cost = dead_cost
         self.max_iter = max_iter
