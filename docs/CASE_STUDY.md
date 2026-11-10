@@ -32,6 +32,7 @@ The parts that went wrong are included as well.
 | Oct 31 | **External benchmark.** 7 open Bundesliga matches (~2.9 GB) downloaded; the kloppy release had dead links, so it was upgraded. Bench result: baseline50 = 0.230 vs the organisers' full-match 0.2433, with the same ranking. **The internal benchmark is a valid stand-in for the hidden leaderboard.** | `make bench` |
 | Oct 31–Nov 1 | **Side quest: vision video.** Mockups (visual companion), research on football-TV camera grammar, Blender install, Mixamo characters, a CC0 BlendSwap stadium, Cycles look-dev, an animated broadcast + rewind + 3D replay clip. | Blender 5.2 scripted in Python, Chrome automation, BlendSwap MCP |
 | Nov 1 | User: "I think we overdo this task?" Agreed. Saved a feedback memory to time-box optional work and steer back to the scored submission. | memory |
+| Nov 10 | **Second bench provider.** Metrica's 2 public sample games (~127 MB) added; per-frame labels rebuilt from the hand-tagged events. Event labels turned out much easier (baseline50 0.415 vs 0.230), so the bench now reports the two sources separately: IDSSE decides, Metrica must agree on the ranking (it does). | TDD, `make bench`, run 3 in `EXPERIMENTS.md` |
 
 ## 3. Architecture we ended with
 
