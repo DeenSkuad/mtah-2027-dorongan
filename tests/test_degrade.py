@@ -67,3 +67,75 @@ def test_in_play_mask_drops_empty_frames():
     players[:30] = np.nan
     mask = in_play_mask(players, min_players=4)
     assert not mask[:30].any() and mask[30:].all()
+
+
+def _hash(track):
+    import hashlib
+
+    return hashlib.sha256(track.ball.tobytes() + track.players.tobytes()).hexdigest()[:16]
+
+
+def test_defaults_unchanged():
+    """Frozen before the edge/slow/off-pitch/player knobs existed: defaults must not move."""
+    out = degrade(synthetic(), DegradeConfig(), np.random.default_rng(0))
+    assert _hash(out) == "a9df24d3593eb0bc"
+
+
+def test_offpitch_hidden():
+    track = synthetic()
+    ball = track.ball.copy()
+    ball[1000:1100] = (-5.0, 30.0)
+    track = MatchTracking(track.players, track.team_of_slot, ball, track.periods, track.pitch)
+    out = degrade(track, DegradeConfig(ball_missing_frac=0.0, offpitch_visible=False),
+                  np.random.default_rng(0))
+    assert np.isnan(out.ball[1000:1100]).all()
+    assert np.isfinite(out.ball[1100:1200]).all()
+
+
+def test_edge_boost_concentrates_gaps():
+    from mtah.degrade import near_edge
+
+    track = synthetic()
+    edge = near_edge(track.ball, track.pitch)
+    cfg = DegradeConfig(ball_missing_frac=0.3, gap_len_median_frames=1, gap_len_sigma=0.01,
+                        edge_boost=8.0, id_switch_per_min=0)
+    out = degrade(track, cfg, np.random.default_rng(0))
+    hidden = np.isnan(out.ball[:, 0]) & ~np.isnan(track.ball[:, 0])
+    assert hidden[edge].mean() > 2 * hidden[~edge & np.isfinite(track.ball[:, 0])].mean()
+
+
+def test_player_missing_frac_reached():
+    track = synthetic()
+    out = degrade(track, DegradeConfig(player_missing_frac=0.15, id_switch_per_min=0),
+                  np.random.default_rng(0))
+    assert abs(np.isnan(out.players[:, :, 0]).mean() - 0.15) <= 0.02
+
+
+def test_referee_slot_untouched():
+    track = synthetic()
+    ref = np.full((track.n_frames(), 1, 2), 50.0, dtype=np.float32)
+    track = MatchTracking(np.concatenate([track.players, ref], axis=1),
+                          np.append(track.team_of_slot, -1).astype(np.int8), track.ball,
+                          track.periods, track.pitch)
+    out = degrade(track, DegradeConfig(player_missing_frac=0.3), np.random.default_rng(0))
+    np.testing.assert_array_equal(out.players[:, -1], ref[:, 0])
+    out.validate()
+
+
+def test_no_visible_ball_ok():
+    track = synthetic()
+    track = MatchTracking(track.players, track.team_of_slot,
+                          np.full_like(track.ball, np.nan), track.periods, track.pitch)
+    cfg = DegradeConfig(edge_boost=4, slow_boost=4, offpitch_visible=False)
+    out = degrade(track, cfg, np.random.default_rng(0))
+    assert np.isnan(out.ball).all()
+
+
+def test_scenario_unknown_raises():
+    import pytest
+
+    from mtah.degrade import SCENARIOS, scenario
+
+    assert scenario(DegradeConfig(), "all").edge_boost == SCENARIOS["edge"]["edge_boost"]
+    with pytest.raises(KeyError):
+        scenario(DegradeConfig(), "edgy")
