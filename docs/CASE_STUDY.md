@@ -34,6 +34,8 @@ The parts that went wrong are included as well.
 | Nov 1 | User: "I think we overdo this task?" Agreed. Saved a feedback memory to time-box optional work and steer back to the scored submission. | memory |
 | Nov 10 | **Second bench provider.** Metrica's 2 public sample games (~127 MB) added; per-frame labels rebuilt from the hand-tagged events. Event labels turned out much easier (baseline50 0.415 vs 0.230), so the bench now reports the two sources separately: IDSSE decides, Metrica must agree on the ranking (it does). | TDD, `make bench`, run 3 in `EXPERIMENTS.md` |
 | Nov 10 | **Learned model.** The user said "top 20, go". Plan, then 4 TDD tasks inline: tracking features → gradient-boosted P(H/A/D) → Viterbi with switch / dead-ball costs, trained on external IDSSE only. Bench, leave-one-match-out: **0.480 vs 0.230** for baseline50, better on all 9 matches. | superpowers: writing-plans → executing-plans + TDD, `scripts/bench.py --learned` |
+| Nov 10 | **Whole-branch review caught a match-only bug.** The match loader returned a single period, so the direction features would have flipped in the second half, and the bench could not see it. Fixed with halves inferred from player presence plus a rolling direction vote, each with a failing test first. | fresh Opus reviewer, superpowers: executing-plans final review |
+| Nov 10 | **Robustness experiment.** New degradation knobs (ball lost near the lines or in slow play, off-pitch ball hidden, player dropout), measurable on the match without labels. Training on a mix of all scenarios: 0.485 mean across scenarios vs 0.435, and better even on the default one (0.497). Now the submission default. | TDD, scenario-matrix bench (run 5) |
 
 ## 3. Architecture we ended with
 

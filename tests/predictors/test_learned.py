@@ -128,3 +128,22 @@ def test_stride_subsamples_training_rows(train, monkeypatch):
 
     model = LearnedPredictor(stride=3, max_iter=5).fit(*train)
     assert model.n_train == -(-sum(len(lab) for lab in train[1]) // 3)  # ceil, all labels valid
+
+
+def test_submission_model_trains_on_the_scenario_mix(monkeypatch, train):
+    """Run 5 picked training on all degradation scenarios (D-003). Keep the default in sync."""
+    from mtah.degrade import SCENARIOS, DegradeConfig
+    from mtah.predictors import learned
+
+    seen = []
+
+    def fake(ids, seed, cfg):
+        seen.append((seed, cfg))
+        return train
+
+    monkeypatch.setattr(learned, "degraded_external", fake)
+    model = learned.train_on_external(cfg=DegradeConfig(), max_iter=5)
+    assert len(seen) == len(SCENARIOS)
+    assert [s for s, _ in seen] == [1 + i for i in range(len(SCENARIOS))]
+    assert any(c.player_missing_frac > 0 for _, c in seen)
+    assert model.stride == len(SCENARIOS)

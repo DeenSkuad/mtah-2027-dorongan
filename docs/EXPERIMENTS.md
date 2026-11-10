@@ -22,6 +22,16 @@ Since run 3 the bench also scores 2 Metrica sample games and reports `MEAN idsse
 | 4 | 2026-11-10 | claude | learned_s8_d4 | IDSSE LOMO | 0.4742 | 0.8757 | 333/437 | 9.6/7.3 | neighbour; the top 9 of 20 grid cells sit within 0.02 (inside the noise band) |
 | 4 | 2026-11-10 | claude | **learned_s8_d8** | metrica ×2 | **0.5366** | 0.8080 | 306/368 | 12.7/10.3 | trained on all 7 IDSSE; also best on Metrica → ranking agrees (baseline50 0.4154) |
 
+**Run 5: robustness matrix** (learned_s8_d8, `MEAN idsse` spellF1 per eval scenario; `scripts/bench.py --learned --train … --eval default,edge,slow,players,all`). Scenarios are in `mtah.degrade.SCENARIOS`: edge = ball lost near the lines and off the pitch, slow = ball lost in slow play, players = 15 % player dropout, all = the three together.
+
+| Train regime | default | edge | slow | players | all | **mean** | Metrica default | Notes |
+|---|---|---|---|---|---|---|---|---|
+| A: default only | 0.4804 | 0.4513 | 0.4850 | 0.3844 | 0.3713 | 0.4345 | 0.5366 | player dropout costs ~0.10 |
+| **B: mix of all 5** | **0.4969** | **0.5106** | **0.5118** | **0.4454** | **0.4602** | **0.4850** | **0.6168** | best in every column; chosen (D-003) |
+| C: mix, no ball-visibility features | 0.4947 | 0.4959 | 0.5089 | 0.4436 | 0.4506 | 0.4787 | 0.6068 | ≈ B → the model does not lean on *when* the ball is missing |
+
+Decoders s8_d4 / s16_d8 under B were within 0.01 of s8_d8 in every scenario; s8_d8 kept. Same-folds selection caveat as run 4.
+
 ## Public 5 minutes — sanity only, never for selection (R3)
 
 Scores are on the **public 5 minutes** only (`make eval`) — a sanity check, not the leaderboard.

@@ -90,14 +90,22 @@ def degraded_external(match_ids, seed: int, cfg):
     return tracks, labels
 
 
-def train_on_external(seed: int = 1, cfg=None, **params) -> LearnedPredictor:
-    """Fit on all 7 IDSSE matches (degraded with `seed`); what the submission uses. cfg defaults
-    to load_config(), i.e. the measured local config when present; see model.trained_with."""
-    from mtah.degrade import load_config
+def train_on_external(seed: int = 1, cfg=None, scenarios=None, **params) -> LearnedPredictor:
+    """Fit on all 7 IDSSE matches, each degraded once per scenario (seed + index), every
+    `len(scenarios)`-th frame kept. This is what the submission uses. Defaults: all SCENARIOS
+    (run 5, D-003) on top of load_config(), i.e. the measured local config when present."""
+    from mtah.degrade import SCENARIOS, load_config, scenario
     from mtah.io.external import IDSSE_MATCHES
 
     cfg = load_config() if cfg is None else cfg
-    model = LearnedPredictor(**params).fit(*degraded_external(IDSSE_MATCHES, seed, cfg))
+    scenarios = list(SCENARIOS) if scenarios is None else list(scenarios)
+    tracks, labels = [], []
+    for index, name in enumerate(scenarios):
+        t, lab = degraded_external(IDSSE_MATCHES, seed + index, scenario(cfg, name))
+        tracks += t
+        labels += lab
+    params.setdefault("stride", len(scenarios))
+    model = LearnedPredictor(**params).fit(tracks, labels)
     model.trained_with = config_tag(cfg)
     return model
 
