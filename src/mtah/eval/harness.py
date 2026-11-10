@@ -63,41 +63,49 @@ def bench(predictors: dict, match_ids, cfg, seed: int = 0):
     return summarise(pd.DataFrame(rows))
 
 
-def bench_learned(make_model, decoders: dict, match_ids, cfg, seed: int = 0):
+def bench_learned(make_model, decoders: dict, match_ids, cfg, seed: int = 0,
+                  train_scenarios=("default",), eval_scenarios=("default",)):
     """Bench a trainable predictor. Each IDSSE match is scored by a model fitted on the other
-    IDSSE matches; other sources by one model fitted on all of them. Training tracks are degraded
-    with seed + 1, scored tracks with seed. decoders maps a predictor name to
-    (switch_cost, dead_cost); each fold computes probabilities once and scores every decoder."""
+    IDSSE matches; other sources by one model fitted on all of them. Every IDSSE match is
+    degraded once per training scenario (seed + 1 + index); scored tracks use seed, once per eval
+    scenario. decoders maps a name to (switch_cost, dead_cost); rows are named
+    '<decoder>@<eval scenario>'. Each fold and scenario computes probabilities once."""
     import pandas as pd
 
-    from mtah.degrade import degrade
+    from mtah.degrade import SCENARIOS, degrade, scenario
     from mtah.io import external
 
-    def degraded(match_id: str, run_seed: int):
+    for name in (*train_scenarios, *eval_scenarios):
+        SCENARIOS[name]  # KeyError before any loading
+
+    def degraded(match_id: str, run_seed: int, scenario_name: str):
         clean, labels = external.load_external(match_id)
-        return degrade(clean, cfg, np.random.default_rng(match_seed(run_seed, match_id))), labels
+        rng = np.random.default_rng(match_seed(run_seed, match_id))
+        return degrade(clean, scenario(cfg, scenario_name), rng), labels
 
     pool = list(external.IDSSE_MATCHES)
-    train = {m: degraded(m, seed + 1) for m in pool}
+    train = {m: [degraded(m, seed + 1 + i, name) for i, name in enumerate(train_scenarios)]
+             for m in pool}
 
     def fit(exclude: str | None):
-        kept = [train[m] for m in pool if m != exclude]
+        kept = [pair for m in pool if m != exclude for pair in train[m]]
         return make_model().fit([t for t, _ in kept], [lab for _, lab in kept])
 
     rows, full_model = [], None
     for match_id in match_ids:
-        track, labels = degraded(match_id, seed)
         if match_id in train:
             model = fit(exclude=match_id)
         else:
             full_model = full_model or fit(exclude=None)
             model = full_model
-        proba = model.proba(track)
-        for name, (switch_cost, dead_cost) in decoders.items():
-            pred = model.decode(proba, track.periods, switch_cost=switch_cost,
-                                dead_cost=dead_cost)
-            rows.append({"predictor": name, "match": match_id,
-                         **score(labels, pred, track.periods)})
+        for eval_name in eval_scenarios:
+            track, labels = degraded(match_id, seed, eval_name)
+            proba = model.proba(track)
+            for name, (switch_cost, dead_cost) in decoders.items():
+                pred = model.decode(proba, track.periods, switch_cost=switch_cost,
+                                    dead_cost=dead_cost)
+                rows.append({"predictor": f"{name}@{eval_name}", "match": match_id,
+                             **score(labels, pred, track.periods)})
     return summarise(pd.DataFrame(rows))
 
 

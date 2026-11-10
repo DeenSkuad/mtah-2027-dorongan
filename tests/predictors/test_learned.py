@@ -111,3 +111,20 @@ def test_train_on_external_records_config_tag(monkeypatch, train):
     b = learned.train_on_external(cfg=DegradeConfig(ball_missing_frac=0.5), max_iter=5)
     assert len(a.trained_with) == 8 and a.trained_with != b.trained_with
     assert learned.config_tag(DegradeConfig()) == a.trained_with
+
+
+def test_drop_removes_features(train):
+    from mtah.features import FEATURE_NAMES
+    from mtah.predictors.learned import LearnedPredictor
+
+    model = LearnedPredictor(drop=("ball_seen", "since_seen"), max_iter=5).fit(*train)
+    assert model.model.n_features_in_ == len(FEATURE_NAMES) - 2
+    track, _ = synthetic(3, T=400)
+    assert len(model(track)) == 400
+
+
+def test_stride_subsamples_training_rows(train, monkeypatch):
+    from mtah.predictors.learned import LearnedPredictor
+
+    model = LearnedPredictor(stride=3, max_iter=5).fit(*train)
+    assert model.n_train == -(-sum(len(lab) for lab in train[1]) // 3)  # ceil, all labels valid

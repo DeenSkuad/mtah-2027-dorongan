@@ -72,3 +72,60 @@ def test_bench_learned_folds_exclude_heldout(monkeypatch):
     per_match = table[~table["match"].str.startswith("MEAN")]
     assert len(per_match) == 2 * 4
     assert set(table["match"]) >= {"MEAN idsse", "MEAN metrica"}
+
+
+def _fake_matches(monkeypatch, ids):
+    import numpy as np
+
+    from mtah.io import external
+    from mtah.schema import MatchTracking
+
+    def fake_load(match_id):
+        T = 200
+        track = MatchTracking(np.zeros((T, 2, 2), np.float32), np.array([0, 1], np.int8),
+                              np.ones((T, 2), np.float32), ((0, T),), (105.0, 68.0), 25)
+        return track, np.array(["H", "A"] * (T // 2), dtype="<U1")
+
+    monkeypatch.setattr(external, "load_external", fake_load)
+    monkeypatch.setattr(external, "IDSSE_MATCHES", tuple(ids))
+
+
+class _Recorder:
+    sizes: list = []
+
+    def fit(self, tracks, labels):
+        _Recorder.sizes.append(len(tracks))
+        return self
+
+    def proba(self, track):
+        import numpy as np
+
+        return np.full((track.n_frames(), 3), 1 / 3)
+
+    def decode(self, proba, periods, switch_cost=None, dead_cost=None):
+        import numpy as np
+
+        return np.full(len(proba), "H", dtype="<U1")
+
+
+def test_unknown_scenario_fails_before_loading(monkeypatch):
+    from mtah.eval.harness import bench_learned
+    from mtah.io import external
+
+    def boom(match_id):
+        raise AssertionError("loaded before validating scenarios")
+
+    monkeypatch.setattr(external, "load_external", boom)
+    with pytest.raises(KeyError):
+        bench_learned(_Recorder, {"a": (1, 1)}, ["J1"], DegradeConfig(), eval_scenarios=["edgy"])
+
+
+def test_train_scenarios_multiply_training_tracks_and_name_rows(monkeypatch):
+    from mtah.eval.harness import bench_learned
+
+    _fake_matches(monkeypatch, ["J1", "J2", "J3"])
+    _Recorder.sizes = []
+    table = bench_learned(_Recorder, {"a": (1, 1)}, ["J1", "J2", "J3"], DegradeConfig(),
+                          train_scenarios=["default", "edge"], eval_scenarios=["default", "all"])
+    assert _Recorder.sizes == [4, 4, 4]
+    assert {"a@default", "a@all"} == set(table["predictor"])

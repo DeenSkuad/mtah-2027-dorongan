@@ -7,14 +7,21 @@ Trained only on external matches (IDSSE), degraded the same way as the bench. Ne
 import numpy as np
 
 from mtah.decode import viterbi
-from mtah.features import frame_features
+from mtah.features import FEATURE_NAMES, frame_features
 from mtah.schema import MatchTracking
 
 CLASSES = np.array(["H", "A", "D"])
 
 
 class LearnedPredictor:
-    def __init__(self, switch_cost: float = 8.0, dead_cost: float = 8.0, max_iter: int = 300):
+    def __init__(self, switch_cost: float = 8.0, dead_cost: float = 8.0, max_iter: int = 300,
+                 drop: tuple[str, ...] = (), stride: int = 1):
+        unknown = set(drop) - set(FEATURE_NAMES)
+        if unknown:
+            raise ValueError(f"unknown features to drop: {sorted(unknown)}")
+        self.keep = np.array([i for i, n in enumerate(FEATURE_NAMES) if n not in drop])
+        self.stride = stride  # train on every stride-th labelled frame
+        self.n_train = 0
         self.switch_cost = switch_cost
         self.dead_cost = dead_cost
         self.max_iter = max_iter
@@ -27,14 +34,15 @@ class LearnedPredictor:
 
         xs, ys = [], []
         for track, label in zip(tracks, labels, strict=True):
-            features = frame_features(track)
+            features = frame_features(track)[:, self.keep]
             inside = np.zeros(track.n_frames(), dtype=bool)
             for start, stop in track.periods:
                 inside[start:stop] = True
             keep = inside & np.isin(label, CLASSES)
             xs.append(features[keep])
             ys.append(np.select([label[keep] == c for c in CLASSES], [0, 1, 2]))
-        x, y = np.concatenate(xs), np.concatenate(ys)
+        x, y = np.concatenate(xs)[::self.stride], np.concatenate(ys)[::self.stride]
+        self.n_train = len(y)
         self.model = HistGradientBoostingClassifier(
             max_iter=self.max_iter, learning_rate=0.05, max_leaf_nodes=63,
             l2_regularization=1.0, early_stopping=False, random_state=0).fit(x, y)
@@ -43,7 +51,7 @@ class LearnedPredictor:
 
     def proba(self, track: MatchTracking) -> np.ndarray:
         """(T, 3) probabilities, columns H, A, D."""
-        raw = self.model.predict_proba(frame_features(track))
+        raw = self.model.predict_proba(frame_features(track)[:, self.keep])
         proba = np.zeros((len(raw), 3))
         proba[:, self.model.classes_] = raw
         return proba
