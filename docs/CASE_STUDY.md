@@ -62,7 +62,7 @@ The single biggest risk was disqualification for sending match data to a cloud L
 4. **Incidents and disclosure question:**
    - Oct 31: a few aggregate statistics (video length, ball-present %, label counts) were seen before the rule was found.
    - Nov 1: three still frames from the tactical video were pasted into the chat by a team member. Claude did not analyse or use them, and the team was reminded that screenshots must stay local.
-   - Nov 10: a screenshot of the local viewer with what appears to be the match video loaded was pasted into the chat to report a display bug. Claude did not analyse or use the frame; the cause was demo data loaded under the match video. The viewer now warns about mismatched files, and screenshots should crop the video out.
+   - Nov 10: a screenshot of the local viewer with what appears to be the match video loaded was pasted into the chat to report a display bug. Claude did not analyse or use the frame; the cause was demo data loaded under the match video. The viewer now warns about mismatched files, and screenshots should crop the video out. A second such screenshot followed minutes later (while the export was still running); also not analysed or used.
    - The hook can't stop content a human pastes in; that part is human discipline. Whether to tell the organisers is left to the team.
 
 ## 5. How Claude Code was used

@@ -593,7 +593,7 @@ body {
   // Served locally (python -m http.server in viewer/)? ?data=out/<file>.json loads it directly.
   const auto = new URLSearchParams(location.search).get("data");
   if (auto) fetch(auto).then(r => r.json()).then(load)
-    .catch(() => { $("source").textContent = `Could not load ${auto}. Use Load data instead.`; });
+    .catch(() => { $("source").textContent = `${auto} isn't there yet. If the export is still running, reload when it prints "written".`; });
 })();
 </script>
 </body>
