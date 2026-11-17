@@ -28,6 +28,7 @@ missing on ~41 % of graded frames, fragmented tracks, no identities). We close t
   mixes (default + four stress), so it does not depend on the simulation being exactly right.
 
 **Why not something else.**
+
 - *Nearest-player + vote window* (the organisers' baseline): it never predicts `D` while the ball
   is visible and gets the possession count badly wrong. On our bench it scores spellF1 0.230.
 - *Hand-written rules* (reachability, pass detection): many thresholds to tune, and nothing
@@ -55,7 +56,7 @@ missing on ~41 % of graded frames, fragmented tracks, no identities). We close t
 4. **Classifier:** scikit-learn `HistGradientBoostingClassifier` (300 iterations, learning
    rate 0.05, 63 leaves, L2 1.0, `random_state=0`, no early stopping) giving P(H, A, D).
 5. **Decoding** (`decode.py`): Viterbi over three states per period, emissions log P − log prior.
-   An H↔A switch costs 8 and any alive↔dead change costs 8 (natural-log units). Frames
+   An H–A switch costs 8 and any alive–dead change costs 8 (natural-log units). Frames
    outside every period are `D`.
 6. **Write** (`submit.py`): the file is validated with the official `validate_submission` before
    it replaces the target. A bad run can never overwrite a good file.
@@ -72,6 +73,7 @@ missing on ~41 % of graded frames, fragmented tracks, no identities). We close t
 | Public 5-min ground truth | Parity check only | Used to confirm the file is aligned and well-formed. Never used for training, tuning or choosing a model |
 
 **External assets.**
+
 - **IDSSE / DFL open data** (7 Bundesliga matches, CC-BY): training and model selection.
 - **Metrica Sports sample games 1–2** (open): second benchmark only, never trained on.
 - **Libraries:** `kloppy` 3.19.1 (loading), `scikit-learn` 1.7.2, `numpy`, `pandas`.
@@ -81,6 +83,7 @@ missing on ~41 % of graded frames, fragmented tracks, no identities). We close t
 sharing match material with a cloud LLM, so every step that reads the match is run locally by a
 person and prints aggregates only. A hook blocks the assistant from match files (`.claude/hooks/`).
 A few slips are logged openly in `docs/CASE_STUDY.md` §4:
+
 - a few aggregate statistics seen before the rule was known
 - still frames and viewer screenshots pasted by a person into the chat
 
@@ -112,7 +115,7 @@ means case by case:
   dead. The model approximates it from ball speed, ball outside the pitch, players slowing down
   and the ball going missing. Who will restart is not predicted: the task asks for `D`.
 - **Loose balls and challenges.** Possession stays with the last team that had it, as in the task
-  definition and the DFL flags. On top of that, the H↔A switch cost (8 nats) means the decoder
+  definition and the DFL flags. On top of that, the H–A switch cost (8 nats) means the decoder
   changes team only when the evidence for the other team lasts. A brief flip there and back costs
   16 nats, so a touch, a deflection, or an aerial duel without control is *unlikely* to flip the
   label (not guaranteed). This is our proxy for "controlled" possession.
@@ -185,8 +188,9 @@ git clone https://github.com/DeenSkuad/mtah-2027-dorongan && cd mtah-2027-dorong
 make setup        # Python 3.12 venv via uv; installs requirements/lock.txt exactly
 # unpack the competition bundle into ./data (see data/README.md)
 make submission   # 1) make measure: writes config/degradation.local.json from the match
-                  # 2) downloads the 7 IDSSE matches once (~/.cache/mtah, needs internet), trains
-                  #    with seeds fixed, labels the match -> evaluation/results/Dorongan.csv
+                  # 2) downloads the 7 IDSSE matches once (needs internet),
+                  #    trains with fixed seeds, labels the match
+                  #    -> evaluation/results/Dorongan.csv
                   # 3) runs the official validator and prints the file's SHA-256
 ```
 
