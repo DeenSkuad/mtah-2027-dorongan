@@ -1,7 +1,20 @@
 # Technical Report — Team Dorongan
 
 More than a Hack 2027, Phase 1: Ball Possession (BAR–ATH, 199,319 frames).
-Code: https://github.com/DeenSkuad/mtah-2027-dorongan · Submission file: `Dorongan.csv`.
+
+| | |
+|---|---|
+| Team | Dorongan (Mahyudin Ayub) |
+| Code | https://github.com/DeenSkuad/mtah-2027-dorongan, tag `submission-v1` |
+| Submission file | `Dorongan.csv`, SHA-256 `aa679800f3094bcc79356ec51da92fd06551aa51e3aba451b6edc2dc4f786b44` |
+
+**Summary.** We learn the possession labelling function from 7 external Bundesliga matches whose
+per-frame flags follow the same definition as this challenge's ground truth. Before training we
+degrade their tracking to resemble the provided automatic tracking. A gradient-boosted classifier
+gives P(H, A, D) per frame, and Viterbi decoding turns those probabilities into whole possessions.
+On our external benchmark the model more than doubles the organisers' baseline (spellF1 0.497 vs
+0.230). No label from the provided game is used at any stage, and the file regenerates byte for
+byte with `make submission`.
 
 ## 1. Approach
 
@@ -86,6 +99,7 @@ A few slips are logged openly in `docs/CASE_STUDY.md` §4:
 
 - a few aggregate statistics seen before the rule was known
 - still frames and viewer screenshots pasted by a person into the chat
+- one measured aggregate printed by a failing unit test (the test is now hermetic)
 
 None of it was used for the model, its features or its settings.
 
@@ -154,7 +168,10 @@ within 0.01, so the choice is stable.
 (`config/degradation.default.json`, 41 % ball missing). The submitted model trains on the same
 recipe, with its base config measured from our match (§1).
 
-**Public 5 minutes.** Run only as a parity check that the frames line up. Never used to choose.
+**Public 5 minutes.** Run once on the final file, only as a parity check that the frames line up:
+spellF1 0.500, macroF1 0.727, 19 possessions vs 17 true, mean length 14.7 s vs 14.2 s. It was
+never used to choose or tune anything. Over the full match the file has 443 possessions with a
+mean length of 9.9 s.
 
 ## 6. Limitations and future work
 
@@ -168,8 +185,10 @@ recipe, with its base config measured from our match (§1).
 - **Selection bias.** Model and decoder were chosen on the same 7 matches as the
   leave-one-match-out folds. Metrica agrees on the ranking, which reduces but does not remove the
   bias.
-- **Period inference** assumes ≥ 18 tracked players. A long tracking drop-out inside a half would
-  be labelled `D`.
+- **Period inference** assumes ≥ 18 tracked players. On the match, 1,708 of 158,857 graded frames
+  (1.1 %) fall outside the inferred periods and are written as `D`. The 2,934 graded frames before
+  the second-half kick-off are truly `D`, so most of these are probably correct. Any that fall
+  inside play would cost at most one or two possessions.
 - **Next with more time:**
   - restart tags from the Smart Tagging as a dead-ball signal
   - a sequence model (bi-LSTM / transformer) in place of features + HMM
@@ -185,7 +204,8 @@ recipe, with its base config measured from our match (§1).
 
 ```bash
 git clone https://github.com/DeenSkuad/mtah-2027-dorongan && cd mtah-2027-dorongan
-make setup        # Python 3.12 venv via uv; installs requirements/lock.txt exactly
+git checkout submission-v1
+make setup        # Python 3.12.12 venv via uv; installs requirements/lock.txt exactly
 # unpack the competition bundle into ./data (see data/README.md)
 make submission   # 1) make measure: writes config/degradation.local.json from the match
                   # 2) downloads the 7 IDSSE matches once (needs internet),

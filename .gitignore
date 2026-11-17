@@ -70,9 +70,8 @@ config/*.local.json
 .ruff_cache/
 *.egg-info/
 
-# vision video renders
-video/out/
-video/assets/
+# parked side project (3D replay video), kept local only; not part of the submission
+video/
 
 # possession viewer exports (can hold match-derived positions and labels, R6)
 viewer/out/

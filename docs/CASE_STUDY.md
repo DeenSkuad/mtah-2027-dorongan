@@ -64,6 +64,7 @@ The single biggest risk was disqualification for sending match data to a cloud L
    - Oct 31: a few aggregate statistics (video length, ball-present %, label counts) were seen before the rule was found.
    - Nov 1: three still frames from the tactical video were pasted into the chat by a team member. Claude did not analyse or use them, and the team was reminded that screenshots must stay local.
    - Nov 10: a screenshot of the local viewer with what appears to be the match video loaded was pasted into the chat to report a display bug. Claude did not analyse or use the frame; the cause was demo data loaded under the match video. The viewer now warns about mismatched files, and screenshots should crop the video out. A second such screenshot followed minutes later (while the export was still running); also not analysed or used. A third showed only the viewer's side panels, after Claude had wrongly said panels were fine to share; they are match-derived too, so the advice was corrected to "describe the page in words".
+   - Nov 17: a unit test that assumed no measured config existed failed on the team machine after `make measure`, and its assertion message showed one measured aggregate (the ball-missing fraction) to Claude. It was not used. The test is now hermetic, so a failing assert can never print a measured value.
    - The hook can't stop content a human pastes in; that part is human discipline. Whether to tell the organisers is left to the team.
 
 ## 5. How Claude Code was used
@@ -95,13 +96,13 @@ The single biggest risk was disqualification for sending match data to a cloud L
 | Metric | Value |
 |---|---|
 | Commits on `develop` (ours) | 18 |
-| Tests | 76 (73 unit, 2 network, 1 human-only) |
+| Tests | 135 unit (`make test`) + network, browser and 2 human-run match tests |
 | Internal bench, baseline50 | spellF1 0.2299 (7 matches) vs 0.2433 official |
 | Subagent tokens (measured) | rules 112,753 · literature 57,382 · builder check 46,895 · code review 80,768 · **total 297,798** (the stopped EDA agent is not counted) |
-| Main session tokens | *fill from `/cost` or `/usage`* |
 | Render speed (M1, Cycles, 1280×720) | ~27 s/frame |
 
-## 8. Still to come
+## 8. Outcome
 
-- Human, on the pushed commit: `pytest -m match`, `make submission` (runs `make measure` first), record the SHA-256, upload `Dorongan.csv` + `Dorongan.md`.
-- After the deadline: CI, pre-commit.
+- Submission package (Nov 17): `Dorongan.csv` (SHA-256 `aa679800…4f786b44`, git tag `submission-v1`), the technical report and the public repository.
+- On the match, run locally: the official validator passed, the public 5-minute parity check gave spellF1 0.500 (alignment only, never used to choose), and the file has 443 possessions.
+- After the deadline, if the team continues: CI and pre-commit.

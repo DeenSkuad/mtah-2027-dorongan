@@ -49,8 +49,30 @@ def test_input_not_mutated():
     np.testing.assert_array_equal(track.ball, ball)
 
 
-def test_load_default_config():
+def test_load_default_config(tmp_path, monkeypatch):
+    """Hermetic: the git-ignored measured config on a team machine must neither change the result
+    nor be printed by a failing assert (R1)."""
+    import shutil
+
+    from mtah import degrade as module
+
+    shutil.copy(module.CONFIG_DIR / "degradation.default.json", tmp_path)
+    monkeypatch.setattr(module, "CONFIG_DIR", tmp_path)
     assert load_config().ball_missing_frac == 0.41
+
+
+def test_local_config_wins_when_present(tmp_path, monkeypatch):
+    import json
+    import shutil
+
+    from mtah import degrade as module
+
+    shutil.copy(module.CONFIG_DIR / "degradation.default.json", tmp_path)
+    local = json.loads((tmp_path / "degradation.default.json").read_text())
+    local["ball_missing_frac"] = 0.5
+    (tmp_path / "degradation.local.json").write_text(json.dumps(local))
+    monkeypatch.setattr(module, "CONFIG_DIR", tmp_path)
+    assert load_config().ball_missing_frac == 0.5
 
 
 def test_full_blackout_terminates():
