@@ -27,6 +27,8 @@ make submission   # measure tracking stats -> train on external IDSSE (downloade
 ```
 
 Seeds are fixed and dependencies pinned, so the same inputs give the same file byte for byte.
+The submitted `Dorongan.csv` has SHA-256
+`aa679800f3094bcc79356ec51da92fd06551aa51e3aba451b6edc2dc4f786b44`.
 The match data is not in this repository and never will be.
 
 ## Quick start (development)

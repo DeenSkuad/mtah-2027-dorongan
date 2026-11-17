@@ -43,3 +43,4 @@ Public GT: 17 possessions, mean 14.2 s. Watch `poss` and `dur` as much as the F1
 | 0 | 2026-10-31 | setup | baseline_smooth50 | ±50 vote | 0.6207 | 0.3256 | 26 | 10.8 | |
 | 0 | 2026-10-31 | setup | baseline_smooth25 | ±25 vote | 0.6200 | 0.2868 | 36 | 7.6 | |
 | 0 | 2026-10-31 | setup | baseline_raw | no smoothing | 0.5972 | 0.0378 | 131 | 2.0 | |
+| 6 | 2026-11-17 | human | **Dorongan** (submitted) | learned, scenario mix, measured config `7062534d` (chosen on the bench, run 5) | 0.7274 | 0.5000 | 19 | 14.7 | parity only, not used to choose; full match 443 spells, mean 9.9 s; 1,708 of 158,857 graded frames outside inferred periods (written D); SHA-256 `aa679800…4f786b44` |
