@@ -36,6 +36,7 @@ The parts that went wrong are included as well.
 | Nov 10 | **Learned model.** The user said "top 20, go". Plan, then 4 TDD tasks inline: tracking features → gradient-boosted P(H/A/D) → Viterbi with switch / dead-ball costs, trained on external IDSSE only. Bench, leave-one-match-out: **0.480 vs 0.230** for baseline50, better on all 9 matches. | superpowers: writing-plans → executing-plans + TDD, `scripts/bench.py --learned` |
 | Nov 10 | **Whole-branch review caught a match-only bug.** The match loader returned a single period, so the direction features would have flipped in the second half, and the bench could not see it. Fixed with halves inferred from player presence plus a rolling direction vote, each with a failing test first. | fresh Opus reviewer, superpowers: executing-plans final review |
 | Nov 10 | **Robustness experiment.** New degradation knobs (ball lost near the lines or in slow play, off-pitch ball hidden, player dropout), measurable on the match without labels. Training on a mix of all scenarios: 0.485 mean across scenarios vs 0.435, and better even on the default one (0.497). Now the submission default. | TDD, scenario-matrix bench (run 5) |
+| Nov 17 | **Submission audit, deadline day.** The audit found that `make submission` still built baseline50 as `team.csv`, `make setup` ignored the lock file, the training config hid a dependency on the local measured file, and the technical report was an empty template. All fixed with tests that failed first. The report was written and fact-checked by an independent reviewer, which caught 3 overclaims. Reproducibility was proven on external data: 2 trainings from scratch (1 thread vs all) gave byte-identical files. IDSSE downloads are now checked against a SHA-256 manifest. | superpowers: verification-before-completion, `reviewer` agent, red-green tests |
 
 ## 3. Architecture we ended with
 
@@ -62,7 +63,7 @@ The single biggest risk was disqualification for sending match data to a cloud L
 4. **Incidents and disclosure question:**
    - Oct 31: a few aggregate statistics (video length, ball-present %, label counts) were seen before the rule was found.
    - Nov 1: three still frames from the tactical video were pasted into the chat by a team member. Claude did not analyse or use them, and the team was reminded that screenshots must stay local.
-   - Nov 10: a screenshot of the local viewer with what appears to be the match video loaded was pasted into the chat to report a display bug. Claude did not analyse or use the frame; the cause was demo data loaded under the match video. The viewer now warns about mismatched files, and screenshots should crop the video out. A second such screenshot followed minutes later (while the export was still running); also not analysed or used.
+   - Nov 10: a screenshot of the local viewer with what appears to be the match video loaded was pasted into the chat to report a display bug. Claude did not analyse or use the frame; the cause was demo data loaded under the match video. The viewer now warns about mismatched files, and screenshots should crop the video out. A second such screenshot followed minutes later (while the export was still running); also not analysed or used. A third showed only the viewer's side panels, after Claude had wrongly said panels were fine to share; they are match-derived too, so the advice was corrected to "describe the page in words".
    - The hook can't stop content a human pastes in; that part is human discipline. Whether to tell the organisers is left to the team.
 
 ## 5. How Claude Code was used
@@ -102,6 +103,5 @@ The single biggest risk was disqualification for sending match data to a cloud L
 
 ## 8. Still to come
 
-- Step 1 (human): match test, `make submission`, `make measure`.
-- Step 2: first real model (per-frame probabilities + HMM/Viterbi switch penalty).
-- CI, pre-commit, code-standards pass; public repo; technical report; submission on Nov 16.
+- Human, on the pushed commit: `pytest -m match`, `make submission` (runs `make measure` first), record the SHA-256, upload `Dorongan.csv` + `Dorongan.md`.
+- After the deadline: CI, pre-commit.

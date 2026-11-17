@@ -9,23 +9,34 @@ Ranked on `spellF1` (whole possessions recovered); floor to beat **0.2433**.
 | Date | Milestone | Status |
 |---|---|---|
 | Oct 20 | Data released | ✅ downloaded |
-| **Nov 10** | **All members registered under the same team name** | ☐ |
-| Nov 14 | Submission instructions published · **model freeze** | ☐ |
-| **Nov 16** | **Our submission target** (deadline Nov 17, 23:59) | ☐ |
+| **Nov 10** | **All members registered under the same team name** | team name: Dorongan |
+| Nov 14 | Submission instructions published · **model freeze** | ✅ learned (D-003) |
+| **Nov 17** | **Submission deadline, 23:59** | ☐ |
 | < Nov 26 | Results — top 20 go to the Innovation Challenge | |
 
-## Quick start
+## Reproduce our submission
+
+Team **Dorongan**. Method, assets, training data and rules: [`docs/TECHNICAL_REPORT.md`](docs/TECHNICAL_REPORT.md).
 
 ```bash
-make setup                 # Python 3.12 venv via uv + editable install
-make test && make lint     # must be green before every commit
-make bench                 # score predictors on degraded Bundesliga matches (model selection)
-make submission            # HUMAN ONLY: builds evaluation/results/<team>.csv from the match
-make validate F=evaluation/results/<team>.csv
-make help                  # every target
+make setup        # Python 3.12 venv via uv, installs requirements/lock.txt exactly (needs uv)
+# unpack the competition bundle into ./data (see data/README.md), or set MTAH_DATA_DIR
+make submission   # measure tracking stats -> train on external IDSSE (downloaded once, needs
+                  # internet) -> label the match -> evaluation/results/Dorongan.csv,
+                  # then the official validator and the file's SHA-256
 ```
 
-Put the match bundle in `data/` (see `data/README.md`) or point `MTAH_DATA_DIR` at it.
+Seeds are fixed and dependencies pinned, so the same inputs give the same file byte for byte.
+The match data is not in this repository and never will be.
+
+## Quick start (development)
+
+```bash
+make test && make lint     # must be green before every commit
+make bench                 # score predictors on degraded Bundesliga matches (model selection)
+make validate F=evaluation/results/Dorongan.csv
+make help                  # every target
+```
 
 ## Project layout
 

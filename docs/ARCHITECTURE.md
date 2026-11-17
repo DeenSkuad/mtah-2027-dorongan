@@ -47,7 +47,7 @@ match values.
 2. Register it in `PREDICTORS` (with `functools.partial` for parameters).
 3. Unit tests in `tests/predictors/` on synthetic tracks (incl. ball fully missing).
 4. `make bench` → compare against `baseline*`; log the MEAN row in `docs/EXPERIMENTS.md`.
-5. A human runs `make submission` with `--predictor <name>`.
+5. A human runs `make submission PREDICTOR=<name>` (default: `learned`, file `Dorongan.csv`).
 
 ## Test markers
 

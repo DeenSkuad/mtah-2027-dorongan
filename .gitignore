@@ -76,3 +76,10 @@ video/assets/
 
 # possession viewer exports (can hold match-derived positions and labels, R6)
 viewer/out/
+
+# defence in depth: match asset names anywhere in the tree, and cached arrays (R6).
+# Already-tracked upstream starter files (load_atd.py etc.) are unaffected.
+*_atd.*
+*_homography.csv
+*_smart_tagging.xml
+*.npz

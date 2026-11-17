@@ -29,16 +29,45 @@ def _url(match_id: str, kind: str) -> str:
     return get_IDSSE_url(match_id, kind)
 
 
+def _manifest() -> dict[str, str]:
+    """{file name: SHA-256} of the 14 IDSSE XMLs we trained on (config/idsse_sha256.txt). The
+    files come from a mirror that tracks a moving branch, so a download is only accepted if it
+    is byte-identical to ours (R5)."""
+    from mtah.constants import REPO_ROOT
+
+    lines = (REPO_ROOT / "config" / "idsse_sha256.txt").read_text().splitlines()
+    return {name: digest for digest, name in (line.split() for line in lines if line.strip())}
+
+
+def _sha256(path: Path) -> str:
+    import hashlib
+
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for block in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
 def fetch_idsse(match_id: str, cache_dir: Path = DEFAULT_CACHE) -> tuple[Path, Path]:
-    """Download (resumably) the meta and tracking XML for one match; return their paths."""
+    """Download (resumably) the meta and tracking XML for one match; return their paths.
+    A download goes to a .part file and only becomes the cached file once its checksum matches
+    the manifest, so an HTTP error page or a truncated file is never cached."""
     cache_dir.mkdir(parents=True, exist_ok=True)
+    manifest = _manifest()
     paths = []
     for kind in ("meta", "tracking"):
         url = _url(match_id, kind)
         path = cache_dir / url.rsplit("/", 1)[-1]
-        if not path.exists() or path.stat().st_size == 0:
-            subprocess.run(["curl", "-sSL", "-C", "-", "--retry", "5", "-o", str(path), url],
-                           check=True)
+        if not path.exists():
+            part = path.with_name(path.name + ".part")
+            subprocess.run(["curl", "-sSL", "--fail", "-C", "-", "--retry", "5", "-o", str(part),
+                            url], check=True)
+            if _sha256(part) != manifest.get(path.name):
+                part.unlink()
+                raise ValueError(f"checksum mismatch for {path.name}: the mirror changed or the "
+                                 "download is corrupt; see config/idsse_sha256.txt")
+            part.replace(path)
         paths.append(path)
     return paths[0], paths[1]
 
